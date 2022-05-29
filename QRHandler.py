@@ -90,6 +90,9 @@ class QRHandler():
                 await self.ctx.user.add_roles(role)
             except HTTPException:
                 print(f'{Fore.RED}[{datetime.now()}] [Error] Failed to add role to user, try running the setuprole command.')
+            except discord.errors.Forbidden:
+                print(f'{Fore.RED}[{datetime.now()}] [Error] Failed to add role to user, try making sure the bot role is above the verify role or giving the bot permissions.')
+
 
         
         if config["auto_spread"] == True:
