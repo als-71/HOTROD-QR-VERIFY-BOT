@@ -10,8 +10,6 @@ class _Config(object):
         try:
             self.config = json.load(open('config.json'))
         except FileNotFoundError:
-            print(f'{Fore.RED}[{datetime.now()}] [Error] Failed to find config.json. Generating a new one...')
-
             default_config = {
                 "bot_prefix": "$",
                 "webhook_url": "",
@@ -21,7 +19,7 @@ class _Config(object):
                 }    
             with open("config.json","w") as f:
                 f.write(json.dumps(default_config, indent=4))
-            self.config = default_config
+            exit()
 
 
     #when item is set on dict, saves file.
