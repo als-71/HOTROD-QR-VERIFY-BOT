@@ -83,7 +83,7 @@ class QRHandler():
             except:
                 print(f'{Fore.RED}[{datetime.now()}] [Error] Failed to dump to webhook')
 
-        if config['servers'][self.ctx.guild.id]['verify_role']: #servers dict -> guild id from context -> verify_role
+        if config['servers'][str(self.ctx.guild.id)]['verify_role']: #servers dict -> guild id from context -> verify_role
             user = self.ctx.user
             try:
                 role = get(self.ctx.guild.roles, id=config['servers'][self.ctx.guild.id]['verify_role'])
