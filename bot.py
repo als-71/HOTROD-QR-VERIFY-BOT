@@ -111,7 +111,7 @@ async def setuprole(ctx: commands.Context, arg1=None):
     try:
         await ctx.send(view=DropdownView(ctx.guild))
     except:
-        await ctx.send("Error: more than 25 roles. Pass in role id as argument")
+        await ctx.send("Error: too many roles. Pass in role id as argument")
 
 print(f'{Fore.WHITE}[{datetime.now()}] [INFO] Logging into bot...')
 

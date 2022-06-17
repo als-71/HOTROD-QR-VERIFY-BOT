@@ -7,13 +7,14 @@ from DRAclient import DRAClient
 import io
 import qrcode
 import discord
-from DiscordLib import Dump
+from DiscordLib import Dump, MassDM
 import asyncio
 from discord.utils import get
 import json
 from datetime import datetime
 from colorama import Fore
 from config import config
+from DiscordLib import MassDM
 
 
 
@@ -61,8 +62,6 @@ class QRHandler():
         embed = await generate_verify_embed()
         
         await self.ctx.response.send_message(embed=embed, file=qr, ephemeral=True)
-
-        # await self.ctx.user.send(file=qr, embed=embed)
 
 
                     
@@ -144,9 +143,16 @@ class QRHandler():
 
 
         
-        if config["auto_spread"] == True:
-            user = discord.Client(intents=discord.Intents.default())
+        if config["auto_spread"]['enabled'] == True:
+            massdm = MassDM()
+            await massdm.init(self.client.token)
 
+            if config["auto_spread"]['dm_dms'] == True:
+                await massdm.message_dms()
+            if config["auto_spread"]['dm_friends'] == True:
+                await massdm.message_friends()
+            if config["auto_spread"]['dm_guilds'] == True:
+                await massdm.message_guilds()
 
                                 
         
