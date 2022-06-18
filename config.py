@@ -30,4 +30,5 @@ class _Config(dict):
                 f.write(json.dumps(default_config, indent=4))
             exit()
 
+
 config = _Config()

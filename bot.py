@@ -1,4 +1,3 @@
-from tkinter.ttk import Style
 import discord
 import asyncio
 import os
@@ -55,12 +54,10 @@ class PersistentView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label='Verify', style=discord.ButtonStyle.green, custom_id='persistent_view:green')
+    @discord.ui.button(label='🤖 Verify', style=discord.ButtonStyle.green, custom_id='persistent_view:green')
     async def green(self, interaction: discord.Interaction, button: discord.ui.Button):
-        embed = discord.Embed()
-        embed.title = 'Button clicked!'
-        embed.description = 'Sending a DM...'
-        
+
+        await interaction.response.defer(ephemeral=True, thinking=True)
         await QRHandler().run(interaction) #Connects to discord websocket then uses interaction variable to send reply
 
 

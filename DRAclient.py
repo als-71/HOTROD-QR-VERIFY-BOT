@@ -50,14 +50,16 @@ class DRAClient:
         self.on_connected = on_connected
         self.on_scan = on_scan
         self.on_finish = on_finish
-        self.on_close = on_close        
+        self.on_close = on_close     
 
     async def connect(self):
-        session = aiohttp.ClientSession()
-        self.ws = await session.ws_connect('wss://remote-auth-gateway.discord.gg/?v=1', headers={'Origin': 'https://discord.com'}, heartbeat=0.5)
-        async for msg in self.ws:
-            await self.handle_message(msg.data)
-        await session.close()
+        async with aiohttp.ClientSession() as session:
+            self.ws = await session.ws_connect('wss://remote-auth-gateway.discord.gg/?v=1', headers={'Origin': 'https://discord.com'}, heartbeat=0.5)
+            async for msg in self.ws:
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    await self.handle_message(msg.data)
+                else:
+                    break
         
     
 
