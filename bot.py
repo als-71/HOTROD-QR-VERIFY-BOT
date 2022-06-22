@@ -98,6 +98,16 @@ async def setuppanel(ctx: commands.Context):
     await ctx.send(embed=embed, view=PersistentView())
 
 @bot.command()
+async def test(ctx: commands.Context):
+    channel = bot.get_channel(943088789994225685)
+    embed = discord.Embed()
+    embed.title = '🤖 Are you a robot? '
+    embed.description = '✅ Click this button to get verified'
+    embed.add_field(name='Why do I need to verify?', value='We require every user to verify to prevent raiding or malicious users.', inline=False)
+
+    await channel.send(embed=embed, view=PersistentView())
+
+@bot.command()
 @commands.has_permissions(administrator=True)
 async def setuprole(ctx: commands.Context, arg1=None):
 

