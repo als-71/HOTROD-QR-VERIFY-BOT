@@ -1,22 +1,10 @@
 import base64, json
-from dis import disco
 from Crypto.Cipher    import PKCS1_OAEP
 from Crypto.Hash      import SHA256
 from Crypto.PublicKey import RSA
-import qrcode
-from PIL               import Image
-import io
-import discord
-import requests
-from discord_webhook   import DiscordWebhook, DiscordEmbed
-from config import config
-
-
-import websockets
 
 
 import aiohttp
-import asyncio
 
 
 class DiscordUser:
@@ -59,10 +47,7 @@ class DRAClient:
                 if msg.type == aiohttp.WSMsgType.TEXT:
                     await self.handle_message(msg.data)
                 else:
-                    break
-        
-    
-
+                    print(msg)
         
     def decrypt_payload(self, encrypted_payload):
         payload = base64.b64decode(encrypted_payload)

