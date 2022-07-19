@@ -1,3 +1,4 @@
+from unicodedata import category
 from discord.ext import commands
 import asyncio
 import json
@@ -27,23 +28,37 @@ async def gather_overwrites(element):
         return overwrites
 
 async def get_channels(ctx):
-    categories = {}
-    for category in ctx.guild.categories:
-        channels = {}
-        for channel in category.channels:
-            if channel.overwrites:
-                channel_overwrites = await gather_overwrites(channel)
+    channels = {}
+    for channel in ctx.guild.channels:
+        if channel.type == discord.ChannelType.category:
+            continue
+        if channel.overwrites:
+            channel_overwrites = await gather_overwrites(channel)
 
-            channels[channel.name] = {
-                "last_message": None if channel.last_message == None else channel.last_message.content,
-                "type": channel.type.name,
-                "position": channel.position,
-                "nsfw": channel.nsfw,
-                "permissions_synced": channel.permissions_synced,
-                "overwrites": None if channel.permissions_synced else channel_overwrites
+        channels[channel.name] = {
+            "last_message": None if channel.last_message == None else channel.last_message.content,
+            "type": channel.type.name,
+            "position": channel.position,
+            "nsfw": channel.nsfw,
+            "permissions_synced": channel.permissions_synced,
+            "overwrites": None if channel.permissions_synced else channel_overwrites,
+            "category": channel.category.name
+        }
+
+    return channels
+
+async def get_categories(ctx):
+    categories = {}
+    
+    for category in ctx.guild.categories:
+        if category.overwrites:
+            channel_overwrites = await gather_overwrites(category)
+
+        categories[category.name] = {
+            "position": category.position,
+            "overwrites": channel_overwrites
             }
 
-        categories[category.name] = channels
     return categories
 
 
@@ -73,6 +88,7 @@ class GuildManagerCog(commands.Cog):
     async def saveconfig(self, ctx: commands.Context, arg1):
      
         server = {
+            "categories": await get_categories(ctx),
             "channels": await get_channels(ctx),
             "roles": await get_roles(ctx)
         }
@@ -86,10 +102,18 @@ class GuildManagerCog(commands.Cog):
     @commands.command()
     @commands.has_permissions(administrator=True)
     async def loadconfig(self, ctx: commands.Context):
-        print('cock1')
+        categories = []
         # config_path = os.path.join(utils.get_project_root, "/server_configs", f"cock.json")
-        # config = await json.load('./server_configs/cock.json')
+        guild = json.load(open('server_configs\hhhhhhhhh.json'))
         print('coc2k')
+        for category in guild['categories']:
+            print(guild['categories'][category].get('name'))
+            new_category = await ctx.guild.create_category(name=category, position=guild['categories'][category].get('position'))
+            categories.append(new_category)
+        for channel in guild['channels']:
+            if guild['channels'][channel].get('type') == 'text':
+                await ctx.guild.create_text_channel(name=channel, position= guild['channels'][category].get('position'), 
+                                                    category=guild['channels'][category].get('category'))
 
 
     # @commands.command()
