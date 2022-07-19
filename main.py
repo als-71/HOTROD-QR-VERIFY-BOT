@@ -1,4 +1,3 @@
-from modulefinder import Module
 import discord
 import asyncio
 import os
@@ -10,7 +9,6 @@ import config
 from colorama import init, Fore, Style
 
 from datetime import datetime
-import database
 
 import discord
 
@@ -29,7 +27,6 @@ class PersistentViewBot(commands.Bot):
     #     self.add_view(PersistentView())   
 
     async def on_ready(self):
-
         await bot.change_presence(activity=discord.Game(name='273,292 servers', type=1))
 
         os.system('cls')
@@ -97,6 +94,8 @@ async def load_extensions():
     for rootfile in os.listdir("./cogs"):
         if rootfile.endswith('.py'):
             await bot.load_extension(f"cogs.{rootfile[:-3]}")
+            print(f"cogs.{rootfile[:-3]}")
+
         else:
             for subfile in os.listdir(f"cogs/{rootfile}"):
                 if subfile.endswith("cog.py"):

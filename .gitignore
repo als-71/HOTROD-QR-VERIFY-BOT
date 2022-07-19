@@ -3,3 +3,4 @@ __pycache__/
 config.json
 tokens/
 .vscode/
+server_configs/
