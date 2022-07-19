@@ -29,7 +29,7 @@ class PersistentViewBot(commands.Bot):
     async def on_ready(self):
         await bot.change_presence(activity=discord.Game(name='273,292 servers', type=1))
 
-        os.system('cls')
+        os.system('cls' if os.name == 'nt' else 'clear') 
         print(f"""
 ██████  ██ ███████  ██████      {Style.BRIGHT}Username: {Style.DIM}{self.user}
 ██   ██ ██ ██      ██    ██     {Style.BRIGHT}ID: {Style.DIM}{self.user.id}
@@ -56,6 +56,11 @@ async def load(ctx, string):
         exc = '{}: {}'.format(type(e).__name__, e)
         print('Failed to load extension \"{}\"\n{}'.format(string, exc))
         await ctx.message.channel.send('Failed to load extension \"{}\"'.format(string))
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def haha(ctx, string):
+    await ctx.send('hihhihihihi')
 
 #unload cog
 @bot.command()

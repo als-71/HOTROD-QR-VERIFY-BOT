@@ -86,7 +86,7 @@ class GuildManagerCog(commands.Cog):
     @commands.command()
     @commands.has_permissions(administrator=True)
     async def saveconfig(self, ctx: commands.Context, arg1):
-     
+        print('save')
         server = {
             "categories": await get_categories(ctx),
             "channels": await get_channels(ctx),
