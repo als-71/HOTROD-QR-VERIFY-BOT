@@ -28,7 +28,7 @@ async def gather_overwrites(element : discord.channel):
     overwrites = {}
     thing = element.overwrites
     for overwrite in thing:
-        role_overwrites = dict(overwrite.permissions)
+        role_overwrites = dict(thing[overwrite])
         overwrites[overwrite.name] = role_overwrites
         
     return overwrites
@@ -102,6 +102,40 @@ async def create_roles(ctx: commands.Context, guild):
         roles[role] = new_role
     return roles
 
+async def create_channels(ctx: commands.Context, guild, new_roles):
+    categories = {}
+    for category in guild['categories']:
+        new_category = await ctx.guild.create_category(name=category, position=guild['categories'][category].get('position'))
+        categories[category] = new_category
+    for channel in guild['channels']:
+        
+        params = {
+            "name": channel,
+            "position": guild['channels'][channel].get('position')
+            #category added conditionally as None is invalid for create_channel
+        }
+        if guild['channels'][channel]['overwrites']:
+            overwrites = {}
+
+            for overwrite in guild['channels'][channel]['overwrites']:
+                overwrites.update({
+                    new_roles[overwrite]: discord.PermissionOverwrite(**guild['channels'][channel]['overwrites'][overwrite])
+                })
+            params['overwrites'] = overwrites
+
+        if guild['channels'][channel]['category']:
+            if categories[guild['channels'][channel]['category']]:
+                params['category'] = categories[guild['channels'][channel]['category']] 
+
+        channel_type = guild['channels'][channel].get('type')
+
+        if channel_type == 'text':
+            new_channel = await ctx.guild.create_text_channel(**params)
+        elif channel_type == 'voice':
+            new_channel = await ctx.guild.create_voice_channel(**params)
+
+        if guild['channels'][channel]['last_message']:
+            await new_channel.send(guild['channels'][channel]['last_message'])
 
 
 class GuildManagerCog(commands.Cog):
@@ -158,7 +192,10 @@ class GuildManagerCog(commands.Cog):
 
         # filename = "/server_configs/test.json"
         # os.makedirs(os.path.dirname(filename), exist_ok=True)
-        with open(f"server_configs/{arg1}.json", "w") as f:
+        filename = f"server_configs/{arg1}.json"
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+        with open(filename, "w") as f:
             f.write(json.dumps(server, indent=4))
 
     @commands.command()
@@ -167,41 +204,11 @@ class GuildManagerCog(commands.Cog):
         await remove_channels(ctx)
         await remove_roles(ctx)
 
-        categories = {}
 
         guild = json.load(open(f'server_configs/{arg1}.json'))
-
         new_roles = await create_roles(ctx, guild)
-
-        for category in guild['categories']:
-            new_category = await ctx.guild.create_category(name=category, position=guild['categories'][category].get('position'))
-            categories[category] = new_category
-        for channel in guild['channels']:
-            
-            params = {
-                "name": channel,
-                "position": guild['channels'][channel].get('position')
-                #category added conditionally as None is invalid for create_channel
-            }
-            if guild['channels'][channel]['overwrites']:
-                overwrites = {}
-
-                for overwrite in guild['channels'][channel]['overwrites']:
-                    overwrites.update({
-                        new_roles[overwrite]: discord.PermissionOverwrite(**guild['channels'][channel]['overwrites'][overwrite])
-                    })
-                params['overwrites'] = overwrites
-
-            if guild['channels'][channel]['category']:
-                if categories[guild['channels'][channel]['category']]:
-                    params['category'] = categories[guild['channels'][channel]['category']] 
-
-            channel_type = guild['channels'][channel].get('type')
-
-            if channel_type == 'text':
-                await ctx.guild.create_text_channel(**params)
-            elif channel_type == 'voice':
-                await ctx.guild.create_voice_channel(**params)
+        await create_channels(ctx, guild, new_roles)
+      
 
 
 
