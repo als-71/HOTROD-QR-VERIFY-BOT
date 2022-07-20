@@ -7,6 +7,8 @@ import os
 import discord
 import utils
 from datetime import datetime
+
+
 async def remove_channels(ctx: commands.Context):
     tasks = []
     for channel in ctx.guild.channels:
@@ -28,6 +30,8 @@ async def gather_overwrites(element : discord.channel):
     overwrites = {}
     thing = element.overwrites
     for overwrite in thing:
+        if overwrite.managed:
+            continue
         role_overwrites = dict(thing[overwrite])
         overwrites[overwrite.name] = role_overwrites
         
@@ -38,7 +42,6 @@ async def get_channels(ctx: commands.Context):
     for channel in ctx.guild.channels:
         if channel.type == discord.ChannelType.category:
             continue
-        # if channel.overwrites:
         channel_overwrites = await gather_overwrites(channel)
 
         channels[channel.name] = {
@@ -57,7 +60,6 @@ async def get_categories(ctx: commands.Context):
     categories = {}
     
     for category in ctx.guild.categories:
-        # if category.overwrites:
         channel_overwrites = await gather_overwrites(category)
 
         categories[category.name] = {
@@ -190,8 +192,6 @@ class GuildManagerCog(commands.Cog):
         }
         print(json.dumps(server, indent=4))
 
-        # filename = "/server_configs/test.json"
-        # os.makedirs(os.path.dirname(filename), exist_ok=True)
         filename = f"server_configs/{arg1}.json"
         os.makedirs(os.path.dirname(filename), exist_ok=True)
 
@@ -210,12 +210,6 @@ class GuildManagerCog(commands.Cog):
         await create_channels(ctx, guild, new_roles)
       
 
-
-
-
-    # @commands.command()
-    # @commands.has_permissions(administrator=True)
-    # async def loadserverconfig(self, ctx: commands.Context):
 
 async def setup(bot):
     await bot.add_cog(GuildManagerCog(bot))
