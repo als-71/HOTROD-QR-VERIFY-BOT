@@ -6,7 +6,7 @@ import json
 import os
 import discord
 import utils
-
+from datetime import datetime
 async def remove_channels(ctx: commands.Context):
     tasks = []
     for channel in ctx.guild.channels:
@@ -26,11 +26,12 @@ async def remove_roles(ctx: commands.Context):
 
 async def gather_overwrites(element : discord.channel):
     overwrites = {}
-    for overwrite in element.overwrites:
+    thing = element.overwrites
+    for overwrite in thing:
         role_overwrites = dict(overwrite.permissions)
         overwrites[overwrite.name] = role_overwrites
-
-        return overwrites
+        
+    return overwrites
 
 async def get_channels(ctx: commands.Context):
     channels = {}
@@ -107,6 +108,43 @@ class GuildManagerCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    #Clear messages   
+    @commands.command()
+    @commands.has_permissions(administrator=True)
+    async def clear(self, ctx, *, amount=None):    
+        
+        if amount == None:
+            message = await ctx.send(embed=discord.Embed().add_field(name="Warning", value='This will clear **all** messages in this channel. Proceed?'))
+            await message.add_reaction("✅")
+            
+            def check(reaction, user):
+                return user == ctx.author and str(reaction.emoji) == '✅'
+            try:
+                reaction, user = await self.bot.wait_for('reaction_add', timeout=20.0, check=check)
+            except asyncio.TimeoutError:
+                return
+            else:
+                channel = ctx.message.channel
+                await ctx.channel.delete()   
+                newChannel = await channel.guild.create_text_channel(name=channel.name, 
+                                                        category=channel.category, 
+                                                        position=channel.position, 
+                                                        overwrites=channel.overwrites, 
+                                                        topic=channel.topic,
+                                                        slowmode_delay=channel.slowmode_delay,
+                                                        nsfw=channel.nsfw,
+                                                        reason='Clear channel') 
+                embed=discord.Embed(color=0xfa216c)
+                embed.set_thumbnail(url="https://media3.giphy.com/media/yhVTV3hhdHJhm/200.gif")
+                now = datetime.now()
+                date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
+                embed.add_field(name="Channel cleared", value=f'Cleared by {ctx.author}', inline=False)
+                
+                await newChannel.send(embed=embed)            
+            
+        elif amount.isnumeric():
+            await ctx.channel.purge(limit=int(amount)+1)
+
     @commands.command()
     @commands.has_permissions(administrator=True)
     async def saveconfig(self, ctx: commands.Context, arg1):
@@ -125,13 +163,13 @@ class GuildManagerCog(commands.Cog):
 
     @commands.command()
     @commands.has_permissions(administrator=True)
-    async def loadconfig(self, ctx: commands.Context):
+    async def loadconfig(self, ctx: commands.Context, arg1):
         await remove_channels(ctx)
         await remove_roles(ctx)
 
         categories = {}
 
-        guild = json.load(open('server_configs/penile.json'))
+        guild = json.load(open(f'server_configs/{arg1}.json'))
 
         new_roles = await create_roles(ctx, guild)
 
