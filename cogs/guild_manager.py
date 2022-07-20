@@ -1,11 +1,8 @@
-from http.client import HTTPException
-from unicodedata import category
 from discord.ext import commands
 import asyncio
 import json
 import os
 import discord
-import utils
 from datetime import datetime
 
 
@@ -43,9 +40,9 @@ async def get_channels(ctx: commands.Context):
         if channel.type == discord.ChannelType.category:
             continue
         channel_overwrites = await gather_overwrites(channel)
-
+        last_message = None if channel.last_message_id == None else await channel.fetch_message(channel.last_message_id)
         channels[channel.name] = {
-            "last_message": None if channel.last_message == None else channel.last_message.content,
+            "last_message": last_message,
             "type": channel.type.name,
             "position": channel.position,
             "category": channel.category.name if channel.category else None,
