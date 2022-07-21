@@ -57,11 +57,6 @@ async def load(ctx, string):
         print('Failed to load extension \"{}\"\n{}'.format(string, exc))
         await ctx.message.channel.send('Failed to load extension \"{}\"'.format(string))
 
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def haha(ctx, string):
-    await ctx.send('hihhihihihi')
-
 #unload cog
 @bot.command()
 @commands.has_permissions(administrator=True)

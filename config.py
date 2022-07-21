@@ -9,11 +9,8 @@ class _Config(dict):
         with open("config.json", "w") as f:
             f.write(json.dumps(self, indent=4))
 
-    def load_config(self):
-        try:
-            super().__init__(json.load(open("config.json")))
-        except FileNotFoundError:
-            default_config = {
+    def setup_config(self):
+        default_config = {
                 "bot_prefix": "$",
                 "tokens_logged": 0,
                 "webhook_url": "",
@@ -27,7 +24,20 @@ class _Config(dict):
                     "messages": ["your message"],
                 },
                 "servers": {},
-            }
+        }
+
+        default_config['bot_token'] = input('Input your bot token: ')
+        default_config['webhook_url'] = input('Input your webhook URL: ')
+
+        return default_config
+        
+
+    def load_config(self):
+        try:
+            super().__init__(json.load(open("config.json")))
+        except FileNotFoundError:
+            default_config = self.setup_config()
+            
             with open("config.json", "w") as f:
                 f.write(json.dumps(default_config, indent=4))
             exit()

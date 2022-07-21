@@ -34,13 +34,21 @@ async def gather_overwrites(element : discord.channel):
         
     return overwrites
 
+
+
+
 async def get_channels(ctx: commands.Context):
     channels = {}
     for channel in ctx.guild.channels:
         if channel.type == discord.ChannelType.category:
             continue
         channel_overwrites = await gather_overwrites(channel)
-        last_message = None if channel.last_message_id == None else await channel.fetch_message(channel.last_message_id)
+
+        if channel.last_message_id:
+            last_message = [message async for message in channel.history(limit=1)][0]
+            last_message = last_message.content
+        else:
+            last_message = None
         channels[channel.name] = {
             "last_message": last_message,
             "type": channel.type.name,
@@ -104,7 +112,13 @@ async def create_roles(ctx: commands.Context, guild):
 async def create_channels(ctx: commands.Context, guild, new_roles):
     categories = {}
     for category in guild['categories']:
-        new_category = await ctx.guild.create_category(name=category, position=guild['categories'][category].get('position'))
+        overwrites = {}
+
+        for overwrite in guild['categories'][channel]['overwrites']:
+            overwrites.update({
+                new_roles[overwrite]: discord.PermissionOverwrite(**guild['categories'][channel]['overwrites'][overwrite])
+            })
+        new_category = await ctx.guild.create_category(name=category, position=guild['categories'][category].get('position'), overwrites=overwrites)
         categories[category] = new_category
     for channel in guild['channels']:
         
@@ -142,6 +156,8 @@ class GuildManagerCog(commands.Cog):
         self.bot = bot
 
     #Clear messages   
+
+
     @commands.command()
     @commands.has_permissions(administrator=True)
     async def clear(self, ctx, *, amount=None):    
