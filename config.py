@@ -1,5 +1,5 @@
 import json
-
+import os
 
 class _Config(dict):
     def __init__(self):
@@ -45,5 +45,5 @@ class _Config(dict):
             input("Failed to parse config.json... ")
             exit()
 
-
+screensess = os.getenv('STY')
 config = _Config()

@@ -94,6 +94,7 @@ async def get_roles(ctx: commands.Context):
 
 async def create_roles(ctx: commands.Context, guild):
     roles = {}
+    tasks = []
     for role in guild['roles']:
         params = {
             'name': role,

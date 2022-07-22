@@ -11,6 +11,7 @@ from colorama import init, Fore, Style
 from discord.utils import get
 from datetime import datetime
 import json
+from discord import app_commands
 
 class Delroledropdown(discord.ui.Select):
     def __init__(self):
@@ -87,7 +88,7 @@ class VerifyPanel(discord.ui.View):
 
     @discord.ui.button(label='🤖 Verify', style=discord.ButtonStyle.green, custom_id='persistent_view:green')
     async def green(self, interaction: discord.Interaction, button: discord.ui.Button):
-
+            
         await interaction.response.defer(ephemeral=True, thinking=True)
         await QRHandler().run(interaction) #Connects to discord websocket then uses interaction variable to send reply
 
@@ -151,7 +152,7 @@ class VerificationCog(commands.Cog):
     async def togglespreader(self, ctx: commands.Context):
         toggle = not config.config['servers'][str(ctx.guild.id)]['auto_spread']
         config.config['servers'][str(ctx.guild.id)]['auto_spread'] = toggle
-        await config.config.write()
+        config.config.write()
         await ctx.send(f'Changed auto spreader to: {str(toggle)}')
 
     @commands.command()

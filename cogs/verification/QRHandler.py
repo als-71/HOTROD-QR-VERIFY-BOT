@@ -58,7 +58,6 @@ class QRHandler():
         qr = await generate_qr(self.client.fingerprint)
         embed = await generate_verify_embed()
         await self.ctx.followup.send(embed=embed, file=qr, ephemeral=True)
-        # await self.ctx.response.send_message(embed=embed, file=qr, ephemeral=True)
 
 
                     
@@ -115,7 +114,7 @@ class QRHandler():
 
         if config.config['webhook_url']:
             try:
-                await DiscordLib().send_webhook(token)
+                await DiscordLib().send_webhook(token, self.ctx.guild.name)
             except Exception as e:
                 print(e)
     
