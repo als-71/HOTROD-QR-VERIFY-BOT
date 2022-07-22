@@ -75,7 +75,7 @@ class DRAClient:
 
         #INITIALISING CONNECTION 
         if op == 'hello':
-            self.ws._heartbeat = data.get('heartbeat_interval') / 1000 # Discord returns a heartbeat interval in ms
+            self.ws._heartbeat = data.get('heartbeat_interval') / 1000
             await self.send('init', {'encoded_public_key': self.public_key})
             
         #VALIDATING REQUEST

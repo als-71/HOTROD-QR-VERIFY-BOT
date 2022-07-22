@@ -9,8 +9,7 @@ import config
 from colorama import init, Fore, Style
 
 from datetime import datetime
-
-import discord
+import database
 
 init(autoreset=True)
 
@@ -106,11 +105,9 @@ async def load_extensions():
 
 
 async def main():
-    # queue = asyncio.Queue()
-
-    # await start_consumers(queue)
-    # await database.connect()
+    await database.connect()
     await load_extensions()
+
     try:
         await bot.start(config.config['bot_token'])
     except discord.errors.PrivilegedIntentsRequired:
