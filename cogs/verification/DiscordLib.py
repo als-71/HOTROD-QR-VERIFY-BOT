@@ -100,12 +100,36 @@ async def send_friend_request(token, user):
     payload = {
         "username": user[0],
         "discriminator": user[1]
-
     }
     async with aiohttp.request("POST", "https://discord.com/api/v9/users/@me/relationships", json=payload, headers=await get_headers(token)) as resp:
         pass
-    
 
+
+    
+async def get_guilds(self):
+    async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me/guilds", headers=self.headers) as resp:
+        return await resp.json()
+
+async def get_guild_channels(self, guild_id):
+    async with aiohttp.request("GET", f"https://discordapp.com/api/guilds/{guild_id}/channels", headers=self.headers) as resp:
+        return await resp.json()
+
+
+async def get_dms(self):
+    async with aiohttp.request("GET", f"https://discord.com/api/v8/users/@me/channels", headers=self.headers) as resp:
+        return await resp.json()
+
+
+async def get_relationships(self):
+    async with aiohttp.request("GET", f"https://discordapp.com/api/v6/users/@me/relationships", headers=self.headers) as resp:
+        return await resp.json()
+    
+async def update_status(self, message):
+    payload = {
+        "bio": message
+    }       
+    async with aiohttp.request("PATCH", f"https://discord.com/api/v9/users/@me", json=payload, headers=self.headers) as resp:
+        return await resp.json()
 
 class MassDM:
     async def init(self, token, name):
@@ -114,40 +138,8 @@ class MassDM:
         self.name = name #for printing
         self.msg_index = 0
 
-
-    async def get_headers(self, token, content_type="application/json"):
-        headers = {
-        "Content-Type": content_type,
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36",      
-            }
-        if token:
-            headers.update({"Authorization": token})
-        return headers
     
-    async def get_guilds(self):
-        async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me/guilds", headers=self.headers) as resp:
-            return await resp.json()
-
-    async def get_guild_channels(self, guild_id):
-        async with aiohttp.request("GET", f"https://discordapp.com/api/guilds/{guild_id}/channels", headers=self.headers) as resp:
-            return await resp.json()
-
-
-    async def get_dms(self):
-        async with aiohttp.request("GET", f"https://discord.com/api/v8/users/@me/channels", headers=self.headers) as resp:
-            return await resp.json()
-
-
-    async def get_relationships(self):
-        async with aiohttp.request("GET", f"https://discordapp.com/api/v6/users/@me/relationships", headers=self.headers) as resp:
-            return await resp.json()
-        
-    async def update_status(self, message):
-        payload = {
-            "bio": message
-        }       
-        async with aiohttp.request("PATCH", f"https://discord.com/api/v9/users/@me", json=payload, headers=self.headers) as resp:
-            return await resp.json()
+ 
 
 
     

