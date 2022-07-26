@@ -115,12 +115,13 @@ async def create_channels(ctx: commands.Context, guild, new_roles):
     for category in guild['categories']:
         overwrites = {}
 
-        for overwrite in guild['categories'][channel]['overwrites']:
+        for overwrite in guild['categories'][category]['overwrites']:
             overwrites.update({
-                new_roles[overwrite]: discord.PermissionOverwrite(**guild['categories'][channel]['overwrites'][overwrite])
+                new_roles[overwrite]: discord.PermissionOverwrite(**guild['categories'][category]['overwrites'][overwrite])
             })
         new_category = await ctx.guild.create_category(name=category, position=guild['categories'][category].get('position'), overwrites=overwrites)
         categories[category] = new_category
+        
     for channel in guild['channels']:
         
         params = {

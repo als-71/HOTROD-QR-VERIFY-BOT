@@ -111,6 +111,15 @@ class MassDM:
         self.name = name #for printing
         self.msg_index = 0
 
+    async def get_headers(self, token, content_type="application/json"):
+        headers = {
+            "Content-Type": content_type,
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36",      
+        }
+        if token:
+            headers.update({"Authorization": token})
+        return headers
+
     
     async def get_guilds(self):
         async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me/guilds", headers=self.headers) as resp:
