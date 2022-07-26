@@ -3,10 +3,9 @@ CREATE TABLE tokens (
     username VARCHAR(255) NOT NULL,
     userid VARCHAR(255) NOT NULL,
     token VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    phone VARCHAR(255) NOT NULL,
-    address json,
+    email VARCHAR(255),
+    phone VARCHAR(255),
     mfa boolean NOT NULL,
     nitro boolean NOT NULL,
-    billing boolean NOT NULL
+    billing json
 );

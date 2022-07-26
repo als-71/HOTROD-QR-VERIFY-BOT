@@ -13,8 +13,6 @@ import database
 
 init(autoreset=True)
 
-
-
 class PersistentViewBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
