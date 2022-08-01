@@ -1,0 +1,2 @@
+
+discord.py @ git+https://github.com/Rapptz/discord.py@78a026aae2da0ae20669880e6c638457f7166419

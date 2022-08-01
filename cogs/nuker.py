@@ -26,9 +26,5 @@ class NukerCog(commands.Cog):
         await remove_roles(ctx)
         
 
-    # @commands.command()
-    # @commands.has_permissions(administrator=True)
-    # async def loadserverconfig(self, ctx: commands.Context):
-
 async def setup(bot):
     await bot.add_cog(NukerCog(bot))

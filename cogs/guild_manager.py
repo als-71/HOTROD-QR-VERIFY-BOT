@@ -34,9 +34,6 @@ async def gather_overwrites(element : discord.channel):
         
     return overwrites
 
-
-
-
 async def get_channels(ctx: commands.Context):
     channels = {}
     for channel in ctx.guild.channels:
@@ -73,7 +70,6 @@ async def get_categories(ctx: commands.Context):
             }
 
     return categories
-
 
 async def get_roles(ctx: commands.Context):
     roles = {}
@@ -157,61 +153,22 @@ class GuildManagerCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    #Clear messages   
-
-
-    @commands.command()
-    @commands.has_permissions(administrator=True)
-    async def clear(self, ctx, *, amount=None):    
-        
-        if amount == None:
-            message = await ctx.send(embed=discord.Embed().add_field(name="Warning", value='This will clear **all** messages in this channel. Proceed?'))
-            await message.add_reaction("✅")
-            
-            def check(reaction, user):
-                return user == ctx.author and str(reaction.emoji) == '✅'
-            try:
-                reaction, user = await self.bot.wait_for('reaction_add', timeout=20.0, check=check)
-            except asyncio.TimeoutError:
-                return
-            else:
-                channel = ctx.message.channel
-                await ctx.channel.delete()   
-                newChannel = await channel.guild.create_text_channel(name=channel.name, 
-                                                        category=channel.category, 
-                                                        position=channel.position, 
-                                                        overwrites=channel.overwrites, 
-                                                        topic=channel.topic,
-                                                        slowmode_delay=channel.slowmode_delay,
-                                                        nsfw=channel.nsfw,
-                                                        reason='Clear channel') 
-                embed=discord.Embed(color=0xfa216c)
-                embed.set_thumbnail(url="https://media3.giphy.com/media/yhVTV3hhdHJhm/200.gif")
-                now = datetime.now()
-                date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
-                embed.add_field(name="Channel cleared", value=f'Cleared by {ctx.author}', inline=False)
-                
-                await newChannel.send(embed=embed)            
-            
-        elif amount.isnumeric():
-            await ctx.channel.purge(limit=int(amount)+1)
-
     @commands.command()
     @commands.has_permissions(administrator=True)
     async def saveconfig(self, ctx: commands.Context, arg1):
-        print('save')
         server = {
             "categories": await get_categories(ctx),
             "channels": await get_channels(ctx),
             "roles": await get_roles(ctx)
         }
-        print(json.dumps(server, indent=4))
 
         filename = f"server_configs/{arg1}.json"
         os.makedirs(os.path.dirname(filename), exist_ok=True)
 
         with open(filename, "w") as f:
             f.write(json.dumps(server, indent=4))
+
+        await ctx.send('Config saved')
 
     @commands.command()
     @commands.has_permissions(administrator=True)

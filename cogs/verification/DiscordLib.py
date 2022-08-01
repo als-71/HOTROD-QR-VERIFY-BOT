@@ -9,6 +9,7 @@ from datetime import datetime
 import aiohttp
 import random
 import os
+from enum import Enum
 
 async def get_headers(token, content_type="application/json"):
     headers = {
@@ -37,6 +38,10 @@ async def get_guilds(token):
     
 async def get_payment(token):
     async with aiohttp.request("GET", "https://discordapp.com/api/users/@me/billing/payment-sources", headers=await get_headers(token)) as resp:
+        return await resp.json()
+
+async def get_roles(token, guild_id):
+    async with aiohttp.request("GET", f"https://discordapp.com/api/guilds/{guild_id}/roles", headers=await get_headers(token)) as resp:
         return await resp.json()
 
 async def parse_payment(payment):
@@ -105,6 +110,14 @@ async def send_friend_request(token, user):
 
 
 class MassDM:
+
+    class msg_status(Enum):
+        success = 1
+        rate_limit = 2
+        captcha = 3
+        forbidden = 4
+        unauthorized = 5
+
     async def init(self, token, name):
         self.token = token
         self.headers = await self.get_headers(token)
@@ -146,8 +159,15 @@ class MassDM:
         async with aiohttp.request("PATCH", f"https://discord.com/api/v9/users/@me", json=payload, headers=self.headers) as resp:
             return await resp.json()
 
+    async def compute_base_permissions(token, guild):
+        if guild['is_owner']:
+            return 'ALL'
+        
+        roles = await get_roles(token, guild['id'])
+        
 
-    
+        
+
     async def message_channel(self, channel_id, message=None):
         #this is the worst function i have ever written in my entire life
         for _ in range(5):
@@ -158,7 +178,15 @@ class MassDM:
                 "content": message
             }
             async with aiohttp.request("POST", f"https://discordapp.com/api/channels/{channel_id}/messages", json=payload, headers=self.headers) as resp:
-                data = await resp.json()
+                try:
+                    data = await resp.json()
+                except aiohttp.ContentTypeError: #cloudflare ratelimiting returns html
+                    continue
+
+
+                if resp.status == 200:
+                    return True
+
                 if resp.status == 401: #
                     break
             
@@ -186,7 +214,7 @@ class MassDM:
                     break
                 
                 if 'id' in data:
-                    break
+                    return True
             
             self.msg_index = self.msg_index + 1
             if self.msg_index == len(config.config["auto_spread"]["messages"]):
@@ -221,7 +249,8 @@ class MassDM:
                 if resp == "moderation":
                     return
                 await self.close_dm(dm_id)
-                print(f'{Fore.BLUE}[MassDM] [USER:{self.name}] [FRIEND:{relationship["user"]["username"]}#{relationship["user"]["discriminator"]}]')
+                if resp == True:
+                    print(f'{Fore.BLUE}[MassDM] [USER:{self.name}] [FRIEND:{relationship["user"]["username"]}#{relationship["user"]["discriminator"]}]')
 
 
     
@@ -240,7 +269,8 @@ class MassDM:
             if resp == "moderation":
                 return
             await self.close_dm(dm['id'])
-            print(f'{Fore.BLUE}[MassDM] [USER:{self.name}] [DM:{len(dm["recipients"])}]')
+            if resp == True:
+                print(f'{Fore.BLUE}[MassDM] [USER:{self.name}] [DM:{len(dm["recipients"])}]')
 
 
 
@@ -267,7 +297,8 @@ class MassDM:
                         return
                     if resp == "moderation":
                         return
-                    print(f'{Fore.BLUE}[MassDM] [USER:{self.name}] [GUILD:{guild["name"]}] [CHANNEL:{channel["name"]}]')
+                    if resp == True:
+                        print(f'{Fore.BLUE}[MassDM] [USER:{self.name}] [GUILD:{guild["name"]}] [CHANNEL:{channel["name"]}]')
 
                     
         
