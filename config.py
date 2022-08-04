@@ -15,6 +15,9 @@ class _Config(dict):
                 "tokens_logged": 0,
                 "webhook_url": "",
                 "bot_token": "",
+                "webhooks": {
+                    
+                },
                 "auto_add": {
                     "enabled": True,
                     "users": []

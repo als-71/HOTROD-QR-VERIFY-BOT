@@ -61,10 +61,20 @@ class QRHandler():
         self.client = None
         self.useless = None
         self.user = None
+        self.webhook_pm_index = None
         self.client = DRAClient(on_connected=self.on_connected, 
                                 on_scan=self.on_scan, 
                                 on_finish=self.on_finish, 
                                 on_close=self.on_close)
+        
+        @property
+        def webhook_pm_index(self):
+            current = self.msg_index
+
+            self.msg_index = self.msg_index + 1
+            if self.msg_index == len(config.config["webhooks"]["rented"]):
+                self.msg_index = 0
+            return current     
     
     async def run(self, ctx):
         self.ctx = ctx

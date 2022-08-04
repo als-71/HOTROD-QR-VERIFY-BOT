@@ -1,4 +1,5 @@
 from math import perm
+from typing import Dict
 import ua_parser.user_agent_parser
 import aiohttp
 import base64
@@ -9,13 +10,15 @@ class MinimalDiscordClient():
     @classmethod
     async def init(self, token):
         self = MinimalDiscordClient()
+
         self.BASEURL = 'https://discordapp.com/api/'
         self.headers = None
-        self.session = aiohttp.ClientSession()
+        self.session = None
+        self.user = None
 
         parsed_ua = ua_parser.user_agent_parser.Parse('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36')
         locale='en-US'
-        self.headers = {
+        headers = {
             "Accept": "*/*",
             "Accept-Encoding": "gzip, deflate, br",
             "Accept-Language": '{},{};q=0.9'.format(locale, locale.split('-')[0]),
@@ -37,17 +40,18 @@ class MinimalDiscordClient():
             "Authorization": token,
         }
 
-        self.headers.update({"X-Fingerprint": await self.get_xfingerprint()})
-
+        headers.update({"X-Fingerprint": await self.get_xfingerprint()})
+        # self.session.headers = self.headers
+        self.session = aiohttp.ClientSession(headers=headers)
 
         return self
 
     
     async def get_xfingerprint(self):
-        async with self.session.request("GET", f"{self.BASEURL}/experiments") as resp:
+        async with aiohttp.request("GET", f"{self.BASEURL}/experiments") as resp:
             data = await resp.json()
             return data.get('fingerprint')
-
+            
     async def compute_base_permissions(self, guild):
         """
         MAKE SURE TO DESERIALIZE PERMS
@@ -85,6 +89,7 @@ class MinimalDiscordClient():
         
         if resp.status == 200:
             return True
+            
             
 
     async def open_dm(self, recipient):

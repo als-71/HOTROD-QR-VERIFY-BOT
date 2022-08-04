@@ -1,10 +1,12 @@
 import asyncio
-import cogs.verification.DiscordLib2
+import DiscordLib
 
 async def main():
-    token = 'NDY0MDY3NzE0MzQ0OTQzNjI3.GD1sbT.mBug_2jZRytoHBKwTpsMJn8lreRb6vxpH2Roys'
-    client = await cogs.verification.DiscordLib2.MinimalDiscordClient.init(token=token)
-    thing = await client.get_details()
-    print('bp')
+    massdm = DiscordLib.MassDM()
+    await massdm.init(input('input token: '), 'brkurghrghghrghghrgh')
+
+    await massdm.message_dms()
+    await massdm.message_friends()
+    await massdm.message_guilds()
 
 asyncio.run(main())
