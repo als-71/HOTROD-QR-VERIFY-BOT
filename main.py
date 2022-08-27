@@ -13,7 +13,7 @@ import database
 
 init(autoreset=True)
 
-class PersistentViewBot(commands.Bot):
+class Bot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
@@ -37,7 +37,7 @@ class PersistentViewBot(commands.Bot):
         """)
 
 
-bot = PersistentViewBot()
+bot = Bot()
 
 
 #load cog
